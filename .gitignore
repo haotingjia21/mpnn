@@ -1,1 +1,18 @@
-software/**
+# generated outputs / artifacts
+runs/
+**/runs/
+outputs/
+**/outputs/
+*.log
+*.tmp
+.DS_Store
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.venv/
+.env
+
+software/**  (only if software contains nothing you author)
