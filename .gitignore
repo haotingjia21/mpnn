@@ -15,4 +15,4 @@ __pycache__/
 .venv/
 .env
 
-# software/**  (only if software contains nothing you author)
+software/**  (only if software contains nothing you author)
