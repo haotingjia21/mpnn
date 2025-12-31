@@ -1,34 +1,29 @@
-# ProteinMPNN Mini-Service (Mock) — Minimal UI + API
+# ProteinMPNN Mini-Service (Mock) — Ultra minimal
 
-This is a minimal scaffold that matches the take-home API/UI shape, but uses a mock sequence designer.
+Single file app + tiny example + curl request.
 
 ## Run
 
 ```bash
 pip install fastapi uvicorn[standard]
-uvicorn mpnn_app.api:app --reload --host 0.0.0.0 --port 8000
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Open:
 - UI: http://localhost:8000/
 - Health: http://localhost:8000/health
-- API docs: http://localhost:8000/docs
 
-## API
+## Request
 
-`POST /design` (multipart/form-data)
-
-Fields:
-- `structure` (file): `.pdb` or `.cif`
-- `chains` (optional): `"A"` or `"A,B"` or `["A","B"]`
-- `num_sequences` (optional, default 5)
-
-Example:
 ```bash
 bash requests/design.curl.sh
 ```
 
-## Notes
+### Notes
 
-- Diff highlighting works when the upload is a PDB and the original sequence can be parsed.
-- CIF is accepted, but the mock does not attempt full mmCIF sequence extraction.
+- `POST /design` accepts `multipart/form-data` with:
+  - `structure` (PDB/CIF file)
+  - `chains` (optional): `A` or `A,B` or `["A","B"]`
+  - `num_sequences` (optional, default 5)
+  - optional `payload` (JSON string) if you prefer “JSON + file”
+- Diff highlighting is done in the browser (works when original sequences can be parsed from PDB).

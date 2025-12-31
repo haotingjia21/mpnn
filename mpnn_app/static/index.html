@@ -1,94 +1,71 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>ProteinMPNN Mini-Service (Mock)</title>
+<title>mpnn-mock</title>
 <style>
-  body{font:14px system-ui, sans-serif; margin:16px; max-width:900px}
-  input,button{font:inherit}
-  .row{margin:8px 0}
-  .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space:pre-wrap; word-break:break-word}
-  .diff{background:#ffe8a3}
-  .err{color:#b00020}
-  table{border-collapse:collapse; width:100%}
-  td,th{border:1px solid #ddd; padding:6px; vertical-align:top}
+body{font:14px system-ui,sans-serif;margin:16px;max-width:920px}
+input,button{font:inherit}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:6px;vertical-align:top}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+.diff{background:#ffe8a3}
+.err{color:#b00020}
 </style>
 
-<h3>ProteinMPNN Mini-Service (Mock)</h3>
+<h3>mpnn-mock</h3>
 
-<div class="row">
+<div>
   <input id="file" type="file" accept=".pdb,.cif">
-</div>
-<div class="row">
-  <label>Chains <input id="chains" placeholder='A or A,B (optional)' size="18"></label>
-  <label style="margin-left:10px">num_sequences <input id="n" type="number" value="5" min="1" max="200" style="width:70px"></label>
-  <button id="go">Design</button>
-</div>
-<div class="row">
-  <small>Diff highlight works for PDB originals. CIF may not show diffs in mock mode.</small>
+  <input id="chains" placeholder="chains (optional)" size="16">
+  <input id="n" type="number" value="5" min="1" max="200" style="width:70px">
+  <button id="go">design</button>
 </div>
 
-<div id="status" class="row"></div>
+<div id="status" style="margin:10px 0"></div>
 <div id="out"></div>
 
 <script>
-const $ = (id)=>document.getElementById(id);
+const $=id=>document.getElementById(id);
 
-function renderSequenceWithDiff(orig, seq){
-  if(!orig){ return `<div class="mono">${seq}</div>`; }
-  const L = Math.min(orig.length, seq.length);
-  let html = '<div class="mono">';
+function seqWithDiff(orig, seq){
+  if(!orig) return `<div class="mono">${seq}</div>`;
+  const L=Math.min(orig.length, seq.length);
+  let h='<div class="mono">';
   for(let i=0;i<L;i++){
-    const ch = seq[i];
-    if(orig[i] !== ch) html += `<span class="diff">${ch}</span>`;
-    else html += ch;
+    const ch=seq[i];
+    h += (orig[i]===ch) ? ch : `<span class="diff">${ch}</span>`;
   }
-  if(seq.length > L) html += `<span class="diff">${seq.slice(L)}</span>`;
-  html += '</div>';
-  return html;
+  if(seq.length>L) h += `<span class="diff">${seq.slice(L)}</span>`;
+  return h+'</div>';
 }
 
 $("go").onclick = async () => {
   $("status").textContent = "";
   $("out").innerHTML = "";
-
-  const f = $("file").files[0];
-  if(!f){ $("status").innerHTML = '<span class="err">Please upload a .pdb or .cif</span>'; return; }
-
-  const fd = new FormData();
+  const f=$("file").files[0];
+  if(!f){ $("status").innerHTML='<span class="err">upload .pdb/.cif</span>'; return; }
+  const fd=new FormData();
   fd.append("structure", f);
-  const chains = $("chains").value.trim();
-  if(chains) fd.append("chains", chains);
+  const ch=$("chains").value.trim(); if(ch) fd.append("chains", ch);
   fd.append("num_sequences", $("n").value);
 
-  $("status").textContent = "Designing…";
-
+  $("status").textContent="…";
   try{
-    const r = await fetch("/design", {method:"POST", body: fd});
-    const data = await r.json();
-    if(!r.ok){ throw new Error(data.detail || "Request failed"); }
+    const r=await fetch("/design",{method:"POST",body:fd});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.detail||"request failed");
+    const orig=data.original_sequences||{};
+    const designs=data.designed_sequences||[];
+    $("status").textContent=`ok (${data.metadata.runtime_ms} ms)`;
 
-    const orig = data.original_sequences || {};
-    const designs = data.designed_sequences || [];
-    $("status").textContent = `Done (runtime ${data.metadata.runtime_ms} ms).`;
-
-    let html = "";
-    if(Object.keys(orig).length){
-      html += `<h4>Original</h4>`;
-      for(const [chain, seq] of Object.entries(orig)){
-        html += `<div><b>Chain ${chain}</b>${renderSequenceWithDiff("", seq)}</div>`;
-      }
-    }
-
-    html += `<h4>Designed sequences</h4>`;
-    html += `<table><thead><tr><th>Chain</th><th>Rank</th><th>Score</th><th>Sequence (diffs highlighted)</th></tr></thead><tbody>`;
+    let html='<table><thead><tr><th>chain</th><th>rank</th><th>sequence</th></tr></thead><tbody>';
     for(const d of designs){
-      const o = orig[d.chain] || "";
-      html += `<tr><td>${d.chain}</td><td>${d.rank}</td><td>${d.score}</td><td>${renderSequenceWithDiff(o, d.sequence)}</td></tr>`;
+      const o=orig[d.chain]||"";
+      html += `<tr><td>${d.chain}</td><td>${d.rank}</td><td>${seqWithDiff(o,d.sequence)}</td></tr>`;
     }
-    html += `</tbody></table>`;
-    $("out").innerHTML = html;
-
+    html+='</tbody></table>';
+    $("out").innerHTML=html;
   }catch(e){
-    $("status").innerHTML = `<span class="err">${e.message}</span>`;
+    $("status").innerHTML=`<span class="err">${e.message}</span>`;
   }
 };
 </script>
