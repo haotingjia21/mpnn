@@ -1,19 +1,13 @@
 from __future__ import annotations
-
 import time
 from typing import Dict, List, Optional, Tuple, Union
-
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-
 from .mock_model import design_sequences_mock, parse_pdb_sequences
 
-
-app = FastAPI(title="ProteinMPNN Mini-Service (Mock)", version="0.1.0")
-
+app = FastAPI(title="ProteinMPNN Mini-Service", version="0.1.0")
 app.mount("/static", StaticFiles(directory="mpnn_app/static"), name="static")
-
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
@@ -61,7 +55,6 @@ async def design(
     temperature: float = Form(1.0, ge=0.01, le=5.0),
 ) -> Dict:
     t0 = time.perf_counter()
-
     filename = (structure.filename or "").lower()
     data = await structure.read()
     if not data:
@@ -73,7 +66,6 @@ async def design(
         ext = ".pdb"
 
     chain_list = _parse_chains(chains)
-
     original_sequences: Dict[str, str] = {}
     if ext == ".pdb":
         try:
