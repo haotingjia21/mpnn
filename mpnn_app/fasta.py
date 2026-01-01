@@ -1,51 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, List, Tuple, Optional
+from typing import Dict, List, Tuple
+
+from Bio import SeqIO
 
 from .schemas import DesignedSequence
 
 
-def parse_fasta_text(text: str) -> List[Tuple[str, str]]:
-    """
-    Minimal FASTA parser:
-      returns list of (header_without_>, sequence_string)
-    Handles multi-line sequences.
-    """
-    records: List[Tuple[str, str]] = []
-    header: Optional[str] = None
-    seq_chunks: List[str] = []
-
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        if line.startswith(">"):
-            # flush previous
-            if header is not None:
-                records.append((header, "".join(seq_chunks)))
-            header = line[1:].strip()
-            seq_chunks = []
-        else:
-            # sequence line (remove spaces)
-            seq_chunks.append(line.replace(" ", ""))
-
-    if header is not None:
-        records.append((header, "".join(seq_chunks)))
-
-    return records
-
-
-def read_fasta_file(path: Path) -> List[Tuple[str, str]]:
-    return parse_fasta_text(path.read_text(encoding="utf-8", errors="ignore"))
-
-
 def find_fasta_files(out_dir: Path) -> List[Path]:
-    """
-    ProteinMPNN typically writes:
-      <out_dir>/seqs/*.fa
-    We support .fa/.fasta and return sorted list for deterministic ordering.
-    """
     seqs_dir = out_dir / "seqs"
     if not seqs_dir.exists():
         return []
@@ -54,66 +17,78 @@ def find_fasta_files(out_dir: Path) -> List[Path]:
 
 
 def _split_multichain_sequence(seq: str, chains: List[str]) -> List[str]:
-    """
-    Heuristic splitter for multi-chain outputs.
-    If ProteinMPNN outputs multi-chain sequences in a single record separated by '/',
-    we split and align with chains order.
-
-    If we can't confidently split, return [seq] as a single chunk.
-    """
+    """Best-effort splitter when one record encodes multiple chains."""
     if len(chains) <= 1:
         return [seq]
-
-    # common separators seen in some pipelines
     for sep in ["/", ":", "|", ","]:
         if sep in seq:
             parts = [p.strip() for p in seq.split(sep) if p.strip()]
             if len(parts) == len(chains):
                 return parts
-
     return [seq]
 
 
-def load_designed_sequences_from_out(out_dir: Path, chains: List[str]) -> List[DesignedSequence]:
+def load_original_and_designed_from_out(out_dir: Path, chains: List[str]) -> Tuple[Dict[str, str], List[DesignedSequence]]:
     """
-    Reads ProteinMPNN outputs from <out_dir>/seqs/*.fa and converts to DesignedSequence.
+    ProteinMPNN FASTA convention (per your observation):
+      - record[0] = original sequence
+      - record[1:] = designed sequences
 
-    Ranking:
-      - rank is assigned by record order within each fasta file (1..N)
+    Returns:
+      (original_sequences_by_chain, designed_sequences)
 
     Chain mapping:
-      - if one chain requested -> all records map to that chain
-      - if multiple chains requested and a record sequence can be split into the same number
-        of chains, we emit one DesignedSequence per chain with the SAME rank.
-      - otherwise, we emit a single DesignedSequence with chain="A,B" (joined) so the API
-        still returns something predictable.
+      - if chains has 1 entry -> map to that chain
+      - if chains has N>1 and sequence can be split into N parts -> map each part to each chain
+      - else -> map to ",".join(chains) as a single combined chain key
     """
     fasta_files = find_fasta_files(out_dir)
+    if not fasta_files:
+        return {}, []
+
+    chain_list = [c for c in chains if c] or ["A"]  # minimal fallback
+
+    original_by_chain: Dict[str, str] = {}
     designed: List[DesignedSequence] = []
 
-    chain_list = [c for c in chains if c]  # sanitize
-
+    # In practice ProteinMPNN usually emits one fasta per target; handle multiple anyway.
+    global_rank = 1
     for fp in fasta_files:
-        records = read_fasta_file(fp)
-        for i, (_hdr, seq) in enumerate(records):
-            rank = i + 1
+        records = list(SeqIO.parse(str(fp), "fasta"))
+        if not records:
+            continue
 
+        # First record is ORIGINAL
+        orig_seq = str(records[0].seq)
+
+        if len(chain_list) <= 1:
+            original_by_chain.setdefault(chain_list[0], orig_seq)
+        else:
+            parts = _split_multichain_sequence(orig_seq, chain_list)
+            if len(parts) == len(chain_list):
+                for c, part in zip(chain_list, parts):
+                    original_by_chain.setdefault(c, part)
+            else:
+                original_by_chain.setdefault(",".join(chain_list), orig_seq)
+
+        # Remaining records are DESIGNS
+        for rec in records[1:]:
+            seq = str(rec.seq)
             if len(chain_list) <= 1:
-                chain = chain_list[0] if chain_list else "A"
-                designed.append(
-                    DesignedSequence(chain=chain, rank=rank, sequence=seq, diff_positions=[])
-                )
+                designed.append(DesignedSequence(chain=chain_list[0], rank=global_rank, sequence=seq, diff_positions=[]))
+                global_rank += 1
                 continue
 
             parts = _split_multichain_sequence(seq, chain_list)
             if len(parts) == len(chain_list):
+                # same rank for all chains of this "design"
                 for c, part in zip(chain_list, parts):
-                    designed.append(
-                        DesignedSequence(chain=c, rank=rank, sequence=part, diff_positions=[])
-                    )
+                    designed.append(DesignedSequence(chain=c, rank=global_rank, sequence=part, diff_positions=[]))
+                global_rank += 1
             else:
                 designed.append(
-                    DesignedSequence(chain=",".join(chain_list), rank=rank, sequence=seq, diff_positions=[])
+                    DesignedSequence(chain=",".join(chain_list), rank=global_rank, sequence=seq, diff_positions=[])
                 )
+                global_rank += 1
 
-    return designed
+    return original_by_chain, designed

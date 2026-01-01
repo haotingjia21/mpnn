@@ -1,11 +1,5 @@
 name: mpnn
 channels:
-  - pytorch
-  - conda-forge
-dependencies:
-  - python=3.11
-  - pip
-channels:
   - conda-forge
 dependencies:
   - python=3.11

@@ -35,7 +35,7 @@ def _parse_payload(payload: Optional[str]) -> DesignPayload:
 
 @app.post("/design")
 async def design(
-    structure: UploadFile = File(..., description="PDB structure file"),
+    structure: UploadFile = File(..., description="Structure file (.pdb, .cif, .mmcif)"),
     payload: str = Form(..., description='JSON string like {"chains":["A","B"],"num_sequences":5}'),
 ) -> Dict[str, Any]:
     blob = await structure.read()
