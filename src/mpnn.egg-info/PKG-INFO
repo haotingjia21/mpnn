@@ -1,3 +1,24 @@
+Metadata-Version: 2.4
+Name: mpnn
+Version: 0.1.0
+Summary: ProteinMPNN mini-service (REST + minimal UI)
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.110
+Requires-Dist: uvicorn[standard]>=0.29
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: pydantic>=2.6
+Requires-Dist: dash>=2.14
+Requires-Dist: requests>=2.31
+Requires-Dist: biopython>=1.83
+Requires-Dist: numpy>=1.24
+Provides-Extra: mpnn
+Requires-Dist: torch>=2.1; extra == "mpnn"
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: httpx>=0.27; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"
+
 # ProteinMPNN mini-service (REST + UI)
 
 A minimal wrapper around **dauparas/ProteinMPNN** providing:
@@ -9,20 +30,8 @@ A minimal wrapper around **dauparas/ProteinMPNN** providing:
 The UI shows the **original** sequence (no highlight) and highlights residues in designed sequences that differ from the original.
 
 ## Env setup
-
-```bash
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-winget install -e --id Docker.DockerDesktop
-```
-
-```bash
-brew install --cask docker-desktop
-open -a Docker
 conda env create -f environment.yml
 conda activate mpnn
-```
 
 
 ## Run locally (dev)

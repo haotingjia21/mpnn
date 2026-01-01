@@ -36,6 +36,7 @@ class ProteinMPNNExecutionError(RunnerError):
 
 
 def normalize_chains(chains: Optional[Union[str, List[str]]]) -> List[str]:
+    """Accepts "A B", "A,B", or ["A","B"] and returns ["A","B"]."""
     if chains is None:
         return []
     if isinstance(chains, list):
@@ -49,6 +50,7 @@ def normalize_chains(chains: Optional[Union[str, List[str]]]) -> List[str]:
 
 
 def _diff_positions(a: str, b: str) -> List[int]:
+    """1-indexed positions where sequences differ (including length mismatch)."""
     L = min(len(a), len(b))
     diffs = [i + 1 for i in range(L) if a[i] != b[i]]
     if len(a) != len(b):
@@ -57,20 +59,38 @@ def _diff_positions(a: str, b: str) -> List[int]:
 
 
 def _resolve_proteinmpnn_script() -> Path:
-    script = os.getenv("PROTEIN_MPNN_SCRIPT", "software/ProteinMPNN/protein_mpnn_run.py")
-    p = Path(script)
-    if not p.is_file():
-        raise ProteinMPNNConfigError(
-            f"ProteinMPNN script not found at {p!s}. Set PROTEIN_MPNN_SCRIPT if needed."
-        )
-    return p.resolve()
+    """Find protein_mpnn_run.py.
+
+    In Docker, set:
+      PROTEIN_MPNN_SCRIPT=/opt/ProteinMPNN/protein_mpnn_run.py
+
+    For local dev, we also try a couple common repo-relative fallbacks.
+    """
+    env = os.getenv("PROTEIN_MPNN_SCRIPT")
+    if env:
+        p = Path(env)
+        if p.is_file():
+            return p.resolve()
+        raise ProteinMPNNConfigError(f"PROTEIN_MPNN_SCRIPT is set but not found: {p}")
+
+    for candidate in [
+        Path("vendor/ProteinMPNN/protein_mpnn_run.py"),
+        Path("software/ProteinMPNN/protein_mpnn_run.py"),
+    ]:
+        if candidate.is_file():
+            return candidate.resolve()
+
+    raise ProteinMPNNConfigError(
+        "protein_mpnn_run.py not found. Set PROTEIN_MPNN_SCRIPT to an absolute path "
+        "(e.g., /opt/ProteinMPNN/protein_mpnn_run.py inside Docker)."
+    )
 
 
 def _convert_cif_to_pdb(cif_path: Path, pdb_path: Path) -> None:
     parser = MMCIFParser(QUIET=True)
     structure = parser.get_structure("cif", str(cif_path))
 
-    # Minimal PDB compatibility: truncate chain ids to 1 char
+    # Minimal PDB compatibility: truncate chain IDs to 1 char.
     models = list(structure)
     if models:
         for chain in models[0]:
@@ -100,7 +120,6 @@ class RealProteinMPNNRunner:
         job: JobPaths = create_job_dir(base_dir=self.jobs_dir)
         input_path = write_structure(job, structure_bytes, filename)
 
-        # ProteinMPNN expects PDB input; convert CIF/mmCIF -> PDB
         suffix = (input_path.suffix or "").lower()
         if suffix in (".cif", ".mmcif"):
             pdb_path = job.root / "input.pdb"
@@ -122,7 +141,6 @@ class RealProteinMPNNRunner:
             "--num_seq_per_target",
             str(payload.num_sequences),
         ]
-        # Only include this arg if user provided chains (avoids passing empty string)
         if chains:
             cmd += ["--pdb_path_chains", " ".join(chains)]
 
@@ -147,7 +165,6 @@ class RealProteinMPNNRunner:
         # IMPORTANT: original is FIRST FASTA record
         original, designed = load_original_and_designed_from_out(Path(job.out_dir), chains)
 
-        # Compute diffs vs original per chain
         for d in designed:
             orig = original.get(d.chain, "")
             d.diff_positions = _diff_positions(orig, d.sequence) if orig else []

@@ -15,6 +15,7 @@ class DesignPayload(BaseModel):
 
 
 class DesignMetadata(BaseModel):
+    model_config = {"protected_namespaces": ()}
     model_version: str
     runtime_ms: int
 

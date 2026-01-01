@@ -29,7 +29,13 @@ def _is_structure_filename(name: Optional[str]) -> bool:
 
 def _highlight_by_positions(seq: str, diff_positions: Sequence[int]) -> html.Div:
     """Highlight 1-indexed positions from diff_positions."""
-    diffs: Set[int] = set(int(p) for p in diff_positions if isinstance(p, int) or str(p).isdigit())
+    diffs: Set[int] = set()
+    for p in diff_positions:
+        try:
+            diffs.add(int(p))
+        except Exception:
+            pass
+
     children: List[Union[str, html.Span]] = []
     for i, ch in enumerate(seq, start=1):
         if i in diffs:
@@ -109,7 +115,7 @@ def create_dash_server():
                         type="text",
                         placeholder='chains (e.g. A or "A B")',
                         value="",
-                        style={"width": "200px"},
+                        style={"width": "220px"},
                     ),
                     dcc.Input(id="nseq", type="number", value=5, min=1, max=200, style={"width": "90px"}),
                     html.Button("Design", id="go"),
