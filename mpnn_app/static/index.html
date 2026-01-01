@@ -1,6 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>mpnn-mock</title>
+<title>mpnn</title>
 <style>
 body{font:14px system-ui,sans-serif;margin:16px;max-width:920px}
 input,button,select{font:inherit}
@@ -11,7 +11,7 @@ td,th{border:1px solid #ddd;padding:6px;vertical-align:top}
 .err{color:#b00020}
 </style>
 
-<h3>mpnn-mock</h3>
+<h3>mpnn</h3>
 
 <div>
   <input id="file" type="file" accept=".pdb,.cif">
@@ -47,13 +47,16 @@ $("go").onclick = async () => {
   $("status").textContent = "";
   $("out").innerHTML = "";
   const f=$("file").files[0];
-  if(!f){ $("status").innerHTML='<span class="err">upload .pdb/.cif</span>'; return; }
+  if(!f){ $("status").innerHTML='<span class="err">upload .pdb</span>'; return; }
 
-  // Spec: JSON + file (multipart form with JSON string part)
+  // Spec: JSON + file
+  const chainsVal = $("chains").value;
   const payload = {
-    chains: $("chains").value ? JSON.parse($("chains").value.startsWith("[") ? $("chains").value : JSON.stringify($("chains").value)) : null,
     num_sequences: Number($("n").value || 5)
   };
+  if (chainsVal) {
+    payload.chains = chainsVal.startsWith("[") ? JSON.parse(chainsVal) : chainsVal;
+  }
 
   const fd=new FormData();
   fd.append("structure", f);
