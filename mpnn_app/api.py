@@ -4,22 +4,14 @@ import json
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
+from starlette.middleware.wsgi import WSGIMiddleware
 
-from .runner import RunnerError, ProteinMPNNExecutionError, get_runner
+from .dash_ui import create_dash_server
+from .runner import RunnerError, RunnerInputError, ProteinMPNNExecutionError, get_runner
 from .schemas import DesignPayload
 
-
 app = FastAPI(title="mpnn", version="0.1.0")
-app.mount("/static", StaticFiles(directory="mpnn_app/static"), name="static")
-
-
-@app.get("/", response_class=HTMLResponse)
-def ui() -> str:
-    with open("mpnn_app/static/index.html", "r", encoding="utf-8") as f:
-        return f.read()
 
 
 @app.get("/health")
@@ -55,12 +47,24 @@ async def design(
 
     try:
         result = runner.design(structure_bytes=blob, filename=structure.filename or "", payload=p)
+    except RunnerInputError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except ProteinMPNNExecutionError as e:
         raise HTTPException(
             status_code=500,
-            detail={"error": str(e), "returncode": e.returncode, "stderr": e.stderr},
+            detail={
+                "error": str(e),
+                "returncode": e.returncode,
+                "stdout": e.stdout,
+                "stderr": e.stderr,
+            },
         ) from e
     except RunnerError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
     return result.model_dump()
+
+
+# Mount Dash at "/" LAST so /health and /design match first
+_dash_app, dash_server = create_dash_server()
+app.mount("/", WSGIMiddleware(dash_server))
