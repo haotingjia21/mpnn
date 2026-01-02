@@ -1,0 +1,13 @@
+{
+  "jobs_dir": "/data/runs/jobs",
+  "proteinmpnn_dir": "/opt/ProteinMPNN",
+  "timeout_sec": 600,
+  "mock": false,
+  "enable_ui": true,
+  "model_defaults": {
+    "model_name": "v_48_020",
+    "num_seq_per_target": 5,
+    "sampling_temp": "0.1",
+    "batch_size": 1
+  }
+}

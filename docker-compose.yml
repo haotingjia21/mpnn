@@ -1,0 +1,11 @@
+services:
+  mpnn:
+    build: .
+    image: mpnn:dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./runs:/data/runs
+    environment:
+      # Used for metadata/versions.json
+      CONTAINER_IMAGE: mpnn:dev

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -14,24 +13,34 @@ from typing import Dict, List, Optional, Tuple
 from Bio import SeqIO
 from Bio.PDB import MMCIFParser, PDBIO
 
-from ..errors import InputError, ExecutionError
-from ..schemas import DesignedSequence
+from ..core import DesignedSequence, ExecutionError, InputError
 
 
 @dataclass(frozen=True)
 class Workspace:
+    """Filesystem layout for a single design job."""
+
     job_dir: Path
-    input_dir: Path
-    output_dir: Path
-    seqs_dir: Path
-    log_path: Path         # output/run.log
-    uploaded_path: Path    # input/<original_filename>
-    pdb_for_run: Path      # PDB file helper scripts will parse (in input/)
+
+    # Top-level folders
+    inputs_dir: Path
+    artifacts_dir: Path
+    logs_dir: Path
+    model_outputs_dir: Path
+    formatted_outputs_dir: Path
+    responses_dir: Path
+    metadata_dir: Path
+
+    # Common files
+    log_path: Path  # logs/run.log
+    uploaded_path: Path  # inputs/<original_filename>
+    normalized_pdb: Path  # artifacts/<base_name>.pdb (original or converted)
 
 
 # ----------------------------
 # Generic helpers
 # ----------------------------
+
 
 def convert_cif_to_pdb(cif_path: Path, pdb_path: Path) -> None:
     parser = MMCIFParser(QUIET=True)
@@ -62,7 +71,16 @@ def run_cmd(cmd: List[str], *, timeout_sec: int) -> Tuple[int, str, str, int]:
     return proc.returncode, (proc.stdout or ""), (proc.stderr or ""), runtime_ms
 
 
-def append_log(log_path: Path, *, title: str, cmd: List[str], rc: int, out: str, err: str, runtime_ms: int) -> None:
+def append_log(
+    log_path: Path,
+    *,
+    title: str,
+    cmd: List[str],
+    rc: int,
+    out: str,
+    err: str,
+    runtime_ms: int,
+) -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as f:
         f.write(f"\n===== {title} =====\n")
@@ -81,6 +99,7 @@ def normalize_chains(chains: Optional[object]) -> List[str]:
     HW spec allows: "A" or ["A","B"].
     UI often provides: "A B" or "A,B". We also strip accidental quotes.
     """
+
     if chains is None:
         return []
 
@@ -117,52 +136,75 @@ def normalize_chains(chains: Optional[object]) -> List[str]:
 # Workspace / input normalization
 # ----------------------------
 
+
 def make_workspace(*, job_dir: Path, structure_path: Path, original_filename: str) -> Workspace:
+    """Create job workspace folders and normalize uploaded structure.
+
+    Layout:
+      inputs/     raw uploads + manifest.json
+      artifacts/  derived/normalized structure + jsonl files
+      logs/       run.log
+      model_outputs/seqs  ProteinMPNN outputs
+      responses/        response.json
+      metadata/   checksums.sha256, versions.json
+    """
+
     job_dir.mkdir(parents=True, exist_ok=True)
-    input_dir = job_dir / "input"
-    output_dir = job_dir / "output"
-    seqs_dir = output_dir / "seqs"
 
-    input_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    seqs_dir.mkdir(parents=True, exist_ok=True)
+    inputs_dir = job_dir / "inputs"
+    artifacts_dir = job_dir / "artifacts"
+    logs_dir = job_dir / "logs"
+    model_outputs_dir = job_dir / "model_outputs"
+    formatted_outputs_dir = job_dir / "formatted_outputs"
+    responses_dir = job_dir / "responses"
+    metadata_dir = job_dir / "metadata"
 
-    log_path = output_dir / "run.log"
+    # Create folders
+    for p in [inputs_dir, artifacts_dir, logs_dir, model_outputs_dir, formatted_outputs_dir, responses_dir, metadata_dir]:
+        p.mkdir(parents=True, exist_ok=True)
+    (model_outputs_dir / "seqs").mkdir(parents=True, exist_ok=True)
 
-    uploaded_path = input_dir / Path(original_filename or structure_path.name or "input.pdb").name
-    uploaded_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path = logs_dir / "run.log"
 
-    # Copy the provided structure into input/<original_filename>, unless already there.
+    # Record raw upload under inputs/
+    uploaded_name = Path(original_filename or structure_path.name or "input.pdb").name
+    uploaded_path = inputs_dir / uploaded_name
+
     if structure_path.resolve() != uploaded_path.resolve():
         shutil.copyfile(structure_path, uploaded_path)
 
-    # Ensure a .pdb exists in input/ for helper scripts to parse
+    # Create normalized PDB under artifacts/
     n = uploaded_path.name.lower()
     stem = uploaded_path.stem or "input"
-    pdb_for_run = input_dir / f"{stem}.pdb"
+    normalized_pdb = artifacts_dir / f"{stem}.pdb"
 
     if n.endswith(".pdb"):
-        if uploaded_path.resolve() != pdb_for_run.resolve():
-            shutil.copyfile(uploaded_path, pdb_for_run)
+        if uploaded_path.resolve() != normalized_pdb.resolve():
+            shutil.copyfile(uploaded_path, normalized_pdb)
     elif n.endswith(".cif") or n.endswith(".mmcif"):
-        convert_cif_to_pdb(uploaded_path, pdb_for_run)
+        convert_cif_to_pdb(uploaded_path, normalized_pdb)
     else:
         raise InputError("Upload must be .pdb, .cif, or .mmcif")
 
     return Workspace(
         job_dir=job_dir,
-        input_dir=input_dir,
-        output_dir=output_dir,
-        seqs_dir=seqs_dir,
+        inputs_dir=inputs_dir,
+        artifacts_dir=artifacts_dir,
+        logs_dir=logs_dir,
+        model_outputs_dir=model_outputs_dir,
+        formatted_outputs_dir=formatted_outputs_dir,
+        responses_dir=responses_dir,
+        metadata_dir=metadata_dir,
         log_path=log_path,
         uploaded_path=uploaded_path,
-        pdb_for_run=pdb_for_run,
+        normalized_pdb=normalized_pdb,
     )
 
 
 # ----------------------------
 # ProteinMPNN helper scripts (JSONL workflow)
 # ----------------------------
+
 
 def parse_multiple_chains(*, proteinmpnn_dir: Path, input_dir: Path, parsed_jsonl: Path, log_path: Path, timeout_sec: int) -> None:
     helper = proteinmpnn_dir / "helper_scripts" / "parse_multiple_chains.py"
@@ -182,13 +224,15 @@ def parse_multiple_chains(*, proteinmpnn_dir: Path, input_dir: Path, parsed_json
 
 def infer_chains_from_parsed_jsonl(parsed_jsonl: Path) -> List[str]:
     """Infer chain IDs from first jsonl record keys like seq_chain_A."""
+
     if not parsed_jsonl.exists():
         return []
-    try:
-        line0 = parsed_jsonl.read_text(encoding="utf-8").splitlines()[0]
-        obj = json.loads(line0)
-    except Exception:
+
+    # Fail fast if the helper produced malformed JSON.
+    line0 = next((ln for ln in parsed_jsonl.read_text(encoding="utf-8").splitlines() if ln.strip()), "")
+    if not line0:
         return []
+    obj = json.loads(line0)
 
     chains: List[str] = []
     for k in obj.keys():
@@ -231,7 +275,9 @@ def run_proteinmpnn(
     jsonl_path: Path,
     chain_id_jsonl: Path,
     out_folder: Path,
-    num_sequences: int,
+    num_seq_per_target: int,
+    sampling_temp: str,
+    batch_size: int,
     model_name: str,
     seed: int,
     log_path: Path,
@@ -248,7 +294,11 @@ def run_proteinmpnn(
         "--out_folder",
         str(out_folder),
         "--num_seq_per_target",
-        str(num_sequences),
+        str(num_seq_per_target),
+        "--sampling_temp",
+        str(sampling_temp),
+        "--batch_size",
+        str(batch_size),
         "--seed",
         str(seed),
         "--model_name",
@@ -265,8 +315,10 @@ def run_proteinmpnn(
 # Outputs
 # ----------------------------
 
+
 def rename_first_fasta_to_result(seqs_dir: Path, *, stem: str) -> Path | None:
     """Rename first produced fasta to <stem>_res.fa. Returns new path or None."""
+
     seqs_dir.mkdir(parents=True, exist_ok=True)
 
     cands = sorted(list(seqs_dir.glob("*.fa")) + list(seqs_dir.glob("*.fasta")))
@@ -293,20 +345,12 @@ def _split_multichain_sequence(seq: str, chains: List[str]) -> List[str]:
     return [seq]
 
 
-def _find_fasta(output_dir: Path) -> Optional[Path]:
-    seqs_dir = output_dir / "seqs"
-    if not seqs_dir.exists():
-        return None
-
-    preferred = sorted(seqs_dir.glob("*_res.fa"))
-    if preferred:
-        return preferred[0]
-
-    cands = sorted(list(seqs_dir.glob("*.fa")) + list(seqs_dir.glob("*.fasta")))
-    return cands[0] if cands else None
-
-
-def parse_outputs(output_dir: Path, *, chains_requested: List[str]) -> Tuple[Dict[str, str], List[DesignedSequence]]:
+def parse_outputs(
+    *,
+    res_fa: Path,
+    parsed_jsonl: Path,
+    chains_requested: List[str],
+) -> Tuple[Dict[str, str], List[DesignedSequence]]:
     """Parse ProteinMPNN FASTA outputs.
 
     Convention:
@@ -315,16 +359,15 @@ def parse_outputs(output_dir: Path, *, chains_requested: List[str]) -> Tuple[Dic
 
     If chains_requested is empty, return all chains.
     """
-    fasta_path = _find_fasta(output_dir)
-    if not fasta_path:
-        return {}, []
 
-    # Infer all chains from parsed_pdbs.jsonl
-    all_chains = infer_chains_from_parsed_jsonl(output_dir / "parsed_pdbs.jsonl") or (chains_requested or ["A"])
+    if not res_fa.exists():
+        raise FileNotFoundError(f"Missing FASTA output: {res_fa}")
+
+    all_chains = infer_chains_from_parsed_jsonl(parsed_jsonl) or (chains_requested or ["A"])
     design_all = len(chains_requested) == 0
     requested = set(chains_requested)
 
-    records = list(SeqIO.parse(str(fasta_path), "fasta"))
+    records = list(SeqIO.parse(str(res_fa), "fasta"))
     if not records:
         return {}, []
 
