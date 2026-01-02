@@ -13,3 +13,7 @@ bash requests/design.curl.sh $PDB_PATH requests/payload.a.json
 
 # design with no chains specified
 bash requests/design.curl.sh $PDB_PATH requests/payload.none.json
+
+# (optional) model selection
+# Valid model_name values from ProteinMPNN README include:
+#   v_48_002, v_48_010, v_48_020 (default), v_48_030
