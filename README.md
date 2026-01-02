@@ -1,83 +1,95 @@
-# ProteinMPNN mini-service (REST + UI)
+# ProteinMPNN mini-service (REST + UI) with K8s/Kubeflow-friendly core
 
-A minimal wrapper around **dauparas/ProteinMPNN** providing:
+This repo is a **minimal wrapper** around **dauparas/ProteinMPNN** that provides:
 
-- `POST /design`: multipart upload (`structure` file + `payload` JSON)
-- `GET /health`
-- a small Dash UI mounted at `/`
+- **Core runner (`mpnn.run_design`)**: stateless, file-contract execution (good for Kubeflow/Kubernetes batch steps)
+- **Service (`mpnn.api:app`)**: FastAPI `POST /design` + `GET /health`
+- **UI**: a small Dash UI mounted at `/` that calls the same `/design` endpoint
 
-The UI shows the **original** sequence (no highlight) and highlights residues in designed sequences that differ from the original.
+## REST API
 
-## Env setup
+### `POST /design` (multipart: JSON + file)
 
-```bash
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+- **File field**: `structure` (`.pdb`, `.cif`, `.mmcif`)
+- **Form field**: `payload` (JSON string)
 
-winget install -e --id Docker.DockerDesktop
+Payload (HW):
+```json
+{
+  "chains": "A",             // optional; also supports ["A","B"]; omitted/empty => ALL chains
+  "num_sequences": 5,        // default 5 (also accepts "Num_sequences")
+  "model_name": "v_48_020"   // UI dropdown; passed to ProteinMPNN --model_name
+}
 ```
 
-```bash
-brew install --cask docker-desktop
-open -a Docker
-conda env create -f environment.yml
-conda activate mpnn
+**Default chains behavior**
+- If `chains` is omitted/empty: **design ALL chains** found in the structure.
+- A `chain_id.jsonl` is **always** written (even for “all chains”) so artifacts are consistent.
+
+### Response JSON
+Matches HW format (metadata + original + designed sequences). `seed` is fixed to `0`.
+
+## Output artifacts (per request / job)
+
+The service creates a job directory under `MPNN_JOBS_DIR` (default `runs/jobs`):
+
 ```
-
-
-## Run locally (dev)
-
-You need a local ProteinMPNN checkout and must point the service to `protein_mpnn_run.py`:
-
-```bash
-export PROTEIN_MPNN_SCRIPT=/path/to/ProteinMPNN/protein_mpnn_run.py
-uvicorn mpnn_app.api:app --reload --host 0.0.0.0 --port 8000
-```
-
-Open:
-- UI: http://localhost:8000/
-- Health: http://localhost:8000/health
-
-Try requests:
-
-```bash
-bash requests/health.curl.sh
-PDB_PATH='examples/PDB_monomers/pdbs/5L33.pdb'
-bash requests/design.curl.sh "$PDB_PATH" requests/payload.a.json
+runs/jobs/<id>/
+  input/
+    <original_uploaded_filename>
+    <stem>.pdb                # ensured for helper scripts (converted from CIF if needed)
+  output/
+    run.log
+    parsed_pdbs.jsonl
+    chain_id.jsonl            # always present
+    response.json             # same JSON returned by /design
+    seqs/
+      <stem>_res.fa
 ```
 
 ## Run with Docker (recommended)
 
-The Docker image **clones ProteinMPNN during build** and sets `PROTEIN_MPNN_SCRIPT` automatically.
-
+Build:
 ```bash
 docker build -t mpnn .
-docker run --rm -p 8000:8000 -v "$(pwd)/runs:/data/runs" mpnn
 ```
 
-### Output location
-
-Inside the container, jobs are written to:
-
-- `/data/runs/jobs/<job_id>/...`
-
-With the volume mount above, outputs appear on the host at:
-
-- `./runs/jobs/<job_id>/...`
-
-## API
-
-### `POST /design`
-
-- Content-Type: `multipart/form-data`
-- Form fields:
-  - `structure`: `.pdb`, `.cif`, or `.mmcif`
-  - `payload`: JSON string, e.g.
-
-```json
-{ "chains": "A B", "num_sequences": 5 }
+Run (mount outputs):
+```bash
+docker run --rm -p 8000:8000 \
+  -v "$PWD/runs:/data/runs" \
+  -e MPNN_JOBS_DIR=/data/runs/jobs \
+  mpnn
 ```
 
-Notes:
-- If you omit `chains`, ProteinMPNN chooses defaults (its own behavior).
-- This wrapper treats the **first FASTA record** in ProteinMPNN output as the **original** sequence, and records `diff_positions` for each designed sequence.
+- API: `http://localhost:8000/health`, `http://localhost:8000/design`
+- UI: `http://localhost:8000/`
+
+## Kubeflow / batch usage (CLI)
+
+The core is path-based (no server needed). This is the shape Kubeflow components like.
+
+Example (inside the same container image):
+```bash
+python -m mpnn.cli \
+  --structure /mnt/inputs/struct.pdb \
+  --payload /mnt/inputs/payload.json \
+  --job_dir /mnt/outputs/job
+```
+
+Artifacts will be written under `/mnt/outputs/job/output/`.
+
+## Environment variables
+
+- `PROTEIN_MPNN_DIR` (default: `/opt/ProteinMPNN`) — where ProteinMPNN is cloned in the container
+- `MPNN_TIMEOUT_SEC` (default: `600`)
+- `MPNN_JOBS_DIR` (default: `runs/jobs`) — service job base directory
+
+## Tests
+
+```bash
+pip install -e ".[mpnn]"
+pytest
+```
+
+Tests stub the core execution so they don’t require a real ProteinMPNN run.
