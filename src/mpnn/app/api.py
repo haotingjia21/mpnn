@@ -10,9 +10,9 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 from starlette.middleware.wsgi import WSGIMiddleware
 
-from .design import run_design
-from .errors import ExecutionError, InputError
-from .schemas import DesignPayload
+from ..runner.design import run_design
+from ..errors import ExecutionError, InputError
+from ..schemas import DesignPayload
 
 from .ui import create_dash_server
 

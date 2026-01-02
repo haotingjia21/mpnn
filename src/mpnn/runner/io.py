@@ -14,8 +14,8 @@ from typing import Dict, List, Optional, Tuple
 from Bio import SeqIO
 from Bio.PDB import MMCIFParser, PDBIO
 
-from .errors import InputError, ExecutionError
-from .schemas import DesignedSequence
+from ..errors import InputError, ExecutionError
+from ..schemas import DesignedSequence
 
 
 @dataclass(frozen=True)
