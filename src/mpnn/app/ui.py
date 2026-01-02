@@ -6,12 +6,16 @@ import requests
 from dash import Dash, Input, Output, State, dcc, html
 from flask import request as flask_request
 
-MODEL_OPTIONS = [
-    {"label": "v_48_002", "value": "v_48_002"},
-    {"label": "v_48_010", "value": "v_48_010"},
-    {"label": "v_48_020 (default)", "value": "v_48_020"},
-    {"label": "v_48_030", "value": "v_48_030"},
-]
+from ..core import AppConfig
+
+
+def _model_options(default_model_name: str):
+    opts = ["v_48_002", "v_48_010", "v_48_020", "v_48_030"]
+    out = []
+    for m in opts:
+        label = f"{m} (default)" if m == default_model_name else m
+        out.append({"label": label, "value": m})
+    return out
 
 S_MONO = {"fontFamily": "ui-monospace, Menlo, Consolas, monospace", "whiteSpace": "pre-wrap"}
 S_DIFF = {"background": "#ffe8a3", "borderRadius": "3px"}
@@ -69,7 +73,7 @@ def render_results(data: dict):
     return html.Div(blocks)
 
 
-def create_dash_server():
+def create_dash_server(*, model_defaults: AppConfig.ModelDefaults):
     app = Dash(__name__)
     app.title = "mpnn"
 
@@ -94,12 +98,19 @@ def create_dash_server():
                     ),
                     dcc.Dropdown(
                         id="model_name",
-                        options=MODEL_OPTIONS,
-                        value="v_48_020",
+                        options=_model_options(model_defaults.model_name),
+                        value=model_defaults.model_name,
                         clearable=False,
                         style={"width": "210px"},
                     ),
-                    dcc.Input(id="nseq", type="number", value=5, min=1, max=200, style={"width": "90px"}),
+                    dcc.Input(
+                        id="nseq",
+                        type="number",
+                        value=model_defaults.num_seq_per_target,
+                        min=1,
+                        max=200,
+                        style={"width": "90px"},
+                    ),
                     html.Button("Design", id="go"),
                 ],
                 style={"display": "flex", "gap": "10px", "alignItems": "center", "flexWrap": "wrap"},
@@ -134,7 +145,10 @@ def create_dash_server():
         b64 = contents.split(",", 1)[1]
         blob = base64.b64decode(b64)
 
-        payload = {"num_sequences": int(nseq or 5), "model_name": model_name}
+        payload = {
+            "num_seq_per_target": int(nseq or model_defaults.num_seq_per_target),
+            "model_name": model_name,
+        }
         if (chains_text or "").strip():
             payload["chains"] = chains_text  # server normalizes
 

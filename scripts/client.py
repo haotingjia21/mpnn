@@ -20,7 +20,9 @@ import requests
 
 
 def host(h: str | None) -> str:
-    h = (h or os.getenv("MPNN_HOST") or "http://localhost:8000").rstrip("/")
+    if h is None:
+        h = os.getenv("MPNN_HOST", "http://localhost:8000")
+    h = h.rstrip("/")
     return h if h.startswith(("http://", "https://")) else "http://" + h
 
 
