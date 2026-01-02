@@ -5,8 +5,8 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from .errors import InputError, ExecutionError
-from .schemas import DesignPayload, DesignResponse, DesignMetadata
+from ..errors import InputError, ExecutionError
+from ..schemas import DesignPayload, DesignResponse, DesignMetadata
 from .io import (
     make_workspace,
     normalize_chains,

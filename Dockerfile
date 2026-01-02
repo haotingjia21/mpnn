@@ -23,7 +23,7 @@ WORKDIR /app
 # Install wrapper deps
 COPY pyproject.toml README.md /app/
 COPY src /app/src
-COPY requests /app/requests
+COPY scripts /app/scripts
 
 RUN pip install --no-cache-dir -U pip \
  && pip install --no-cache-dir -e ".[mpnn]"
@@ -34,4 +34,4 @@ VOLUME ["/data/runs"]
 
 EXPOSE 8000
 
-CMD ["uvicorn", "mpnn.api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "mpnn.app.api:app", "--host", "0.0.0.0", "--port", "8000"]

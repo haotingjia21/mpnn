@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import mpnn.api as api
+import mpnn.app.api as api
 from mpnn import DesignMetadata, DesignResponse, DesignedSequence
 
 

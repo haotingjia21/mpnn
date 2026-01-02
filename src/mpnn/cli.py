@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .design import run_design
+from .runner.design import run_design
 from .schemas import DesignPayload
 
 
