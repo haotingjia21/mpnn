@@ -97,7 +97,7 @@ def normalize_chains(chains: Optional[object]) -> List[str]:
     """Normalize chain input.
 
     HW spec allows: "A" or ["A","B"].
-    UI often provides: "A B" or "A,B". We also strip accidental quotes.
+    UI provides: "A B" or "A,B". We also strip accidental quotes.
     """
 
     if chains is None:
