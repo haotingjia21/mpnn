@@ -62,28 +62,6 @@ def run_design(
     timeout_sec: int,
 ) -> DesignResponse:
     """Run ProteinMPNN design and write artifacts under job_dir/.
-
-    Artifact contract (under job_dir/):
-
-        runs/jobs/<id>/
-          inputs/
-            <original_uploaded_filename>
-            manifest.json
-          artifacts/
-            <base_name>.pdb
-            parsed_pdbs.jsonl
-            chain_ids.jsonl
-          logs/
-            run.log
-          model_outputs/
-            seqs/
-              <base_name>_res.fa
-          formatted_outputs/
-          responses/
-            response.json
-          metadata/
-            checksums.sha256
-            run_metadata.json
     """
 
     pm_dir = proteinmpnn_dir

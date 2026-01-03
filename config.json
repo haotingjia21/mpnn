@@ -11,6 +11,6 @@
     "model_name": "v_48_020",
     "sampling_temp": "0.1",
     "batch_size": 1,
-    "seed": 0
+    "seed": 1
   }
 }
