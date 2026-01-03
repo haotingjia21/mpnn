@@ -73,7 +73,7 @@ def render_results(data: dict):
     return html.Div(blocks)
 
 
-def create_dash_server(*, model_defaults: AppConfig.ModelDefaults):
+def create_dash_server(*, model_defaults: AppConfig.ModelDefaults, ui_defaults: AppConfig.UiDefaults):
     app = Dash(__name__)
     app.title = "mpnn"
 
@@ -92,9 +92,9 @@ def create_dash_server(*, model_defaults: AppConfig.ModelDefaults):
                     dcc.Input(
                         id="chains_text",
                         type="text",
-                        placeholder='chains (optional, e.g. "A B" or "A,B")',
-                        value="",
-                        style={"width": "320px"},
+                        placeholder='chains (required; use "ALL" for default all-chains)',
+                        value=(ui_defaults.chains or "ALL"),
+                        style={"width": "360px"},
                     ),
                     dcc.Dropdown(
                         id="model_name",
@@ -106,7 +106,7 @@ def create_dash_server(*, model_defaults: AppConfig.ModelDefaults):
                     dcc.Input(
                         id="nseq",
                         type="number",
-                        value=model_defaults.num_seq_per_target,
+                        value=ui_defaults.num_seq_per_target,
                         min=1,
                         max=200,
                         style={"width": "90px"},
@@ -145,12 +145,12 @@ def create_dash_server(*, model_defaults: AppConfig.ModelDefaults):
         b64 = contents.split(",", 1)[1]
         blob = base64.b64decode(b64)
 
+        # /design requires chains + num_seq_per_target; UI always sends explicit values.
         payload = {
-            "num_seq_per_target": int(nseq or model_defaults.num_seq_per_target),
+            "chains": (chains_text or "ALL").strip() or "ALL",
+            "num_seq_per_target": int(nseq),
             "model_name": model_name,
         }
-        if (chains_text or "").strip():
-            payload["chains"] = chains_text  # server normalizes
 
         url = f"{flask_request.host_url.rstrip('/')}/design"
 

@@ -117,6 +117,8 @@ def normalize_chains(chains: Optional[object]) -> List[str]:
         s = chains.strip()
         if not s:
             return []
+        if s.upper() == "ALL":
+            return []
         for p in re.split(r"[,\s]+", s):
             if p:
                 cp = clean(p)
@@ -146,7 +148,7 @@ def make_workspace(*, job_dir: Path, structure_path: Path, original_filename: st
       logs/       run.log
       model_outputs/seqs  ProteinMPNN outputs
       responses/        response.json
-      metadata/   checksums.sha256, versions.json
+      metadata/   checksums.sha256, run_metadata.json
     """
 
     job_dir.mkdir(parents=True, exist_ok=True)

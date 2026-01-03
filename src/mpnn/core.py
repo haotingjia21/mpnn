@@ -48,26 +48,36 @@ class AppConfig(BaseModel):
 
         model_config = ConfigDict(extra="forbid", protected_namespaces=())
 
+        # Defaults that are safe to apply server-side when a request omits them.
+        # NOTE: num_seq_per_target and chains are request-required (see DesignPayload).
         model_name: str
-        num_seq_per_target: int = Field(ge=1)
         sampling_temp: str
         batch_size: int = Field(ge=1)
+        seed: int = Field(ge=0)
+
+    class UiDefaults(BaseModel):
+        """Defaults used only by the UI (client-side convenience).
+
+        These are NOT applied implicitly by the /design endpoint. The UI will
+        always send explicit values so the server can treat them as required.
+        """
+
+        model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+        num_seq_per_target: int = Field(ge=1)
+        chains: str = Field(default="ALL")
 
     jobs_dir: Path
     proteinmpnn_dir: Path
     timeout_sec: int = Field(ge=1)
-    mock: bool
     enable_ui: bool
+    ui_defaults: UiDefaults
     model_defaults: ModelDefaults
 
 
 def load_config(path: Path) -> AppConfig:
     data = json.loads(path.read_text(encoding="utf-8"))
     return AppConfig.model_validate(data)
-
-
-def find_default_config_path() -> Path:
-    return Path("config.json")
 
 
 # ---------------------------
@@ -87,24 +97,23 @@ class _BaseModel(BaseModel):
 
 
 class DesignPayload(_BaseModel):
-    # chains can be "A" or ["A","B"]; omit/empty => "all chains"
-    chains: Optional[Union[str, List[str]]] = None
+    # chains can be "A" or ["A","B"] or "ALL".
+    # Required: callers must explicitly provide it.
+    chains: Union[str, List[str]]
 
-    # ProteinMPNN args (optional overrides; defaults come from config.json)
-    num_seq_per_target: Optional[int] = Field(
-        default=None,
+    # ProteinMPNN args
+    # Required: callers must explicitly provide it.
+    num_seq_per_target: int = Field(
         validation_alias=AliasChoices("num_seq_per_target", "num_sequences", "Num_sequences"),
         serialization_alias="num_seq_per_target",
+        ge=1,
     )
-    sampling_temp: Optional[str] = Field(default=None, serialization_alias="sampling_temp")
-    batch_size: Optional[int] = Field(default=None, serialization_alias="batch_size")
     model_name: Optional[str] = Field(default=None, serialization_alias="model_name")
 
 
 class DesignMetadata(_BaseModel):
     model_version: str
     runtime_ms: int
-    seed: int = 0
 
 
 class DesignedSequence(_BaseModel):

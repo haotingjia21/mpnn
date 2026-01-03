@@ -23,7 +23,7 @@ Runtime settings are loaded from a JSON config file (`config.json`).
 payload fields (e.g. `num_seq_per_target`) override these defaults for that job,
 and the resolved values are recorded into `runs/jobs/<id>/inputs/manifest.json`.
 
-For reproducibility, `metadata/versions.json` records `model_git_sha` (the
+For reproducibility, `metadata/run_metadata.json` records `model_git_sha` (the
 ProteinMPNN commit hash) by running `git rev-parse HEAD` in the ProteinMPNN
 checkout inside the container.
 
@@ -67,15 +67,6 @@ python scripts/client.py design examples/toy.pdb --chains A --nseq 5 --model v_4
 python scripts/client.py design examples/PDB_monomers/pdbs/5L33.pdb
 ```
 
-## Tests
-```bash
-pip install -e ".[mpnn]"
-pytest
-```
-
-Tests stub the core execution so they don’t require a real ProteinMPNN run.
-
-
 ## REST API
 ### `POST /design` (multipart: JSON payload + pdb/cif)
 
@@ -92,7 +83,7 @@ Payload:
 ```
 
 ### Response JSON
-Matches HW format (metadata + original + designed sequences). `seed` is fixed to `0`.
+Matches HW format (metadata + original + designed sequences). The service does not return a `seed` field in the API response.
 
 ## Output artifacts (per request / job)
 
@@ -117,7 +108,7 @@ runs/jobs/<id>/
     response.json
   metadata/
     checksums.sha256
-    versions.json
+    run_metadata.json
 ```
 
 ## Notes

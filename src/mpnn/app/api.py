@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 from starlette.middleware.wsgi import WSGIMiddleware
 
-from ..core import AppConfig, ExecutionError, InputError, DesignPayload, find_default_config_path, load_config
+from ..core import AppConfig, ExecutionError, InputError, DesignPayload, load_config
 from ..runner.design import run_design
 
 
-def _parse_payload(payload: Optional[str]) -> DesignPayload:
-    if not payload or not payload.strip():
+def _parse_payload(payload: str) -> DesignPayload:
+    if not payload.strip():
         raise HTTPException(status_code=422, detail="Missing required form field: payload (JSON)")
     try:
         obj = json.loads(payload)
@@ -27,16 +27,16 @@ def _parse_payload(payload: Optional[str]) -> DesignPayload:
         raise HTTPException(status_code=422, detail=e.errors()) from e
 
 
-def create_app(config_path: Optional[Path] = None) -> FastAPI:
+def create_app() -> FastAPI:
     """Create a FastAPI app.
 
     Runtime configuration is loaded from a JSON file (fail-fast).
 
-    versions.json records `model_git_sha` (ProteinMPNN repo revision).
+    run_metadata.json records `model_git_sha` (ProteinMPNN repo revision) plus app_version.
     """
 
-    cfg_path = config_path or find_default_config_path()
-    cfg = load_config(cfg_path)
+    # Config path is intentionally non-optional: we always load ./config.json.
+    cfg = load_config(Path("config.json"))
     app = FastAPI(title="mpnn", version="0.1.0")
     app.state.config = cfg
 
@@ -49,7 +49,10 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
         structure: UploadFile = File(..., description="Structure file (.pdb, .cif, .mmcif)"),
         payload: str = Form(
             ...,
-            description='JSON string. Example: {"chains":["A","B"],"num_seq_per_target":5,"sampling_temp":"0.1","model_name":"v_48_020"}. Omitted fields use config.json model_defaults.',
+            description=(
+                'JSON string. Required fields: "chains" (use "ALL" for default all-chains) and '
+                '"num_seq_per_target". Optional field: "model_name".'
+            ),
         ),
     ) -> Dict[str, Any]:
         blob = await structure.read()
@@ -76,8 +79,6 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
                 model_defaults=cfg.model_defaults,
                 proteinmpnn_dir=cfg.proteinmpnn_dir,
                 timeout_sec=cfg.timeout_sec,
-                mock=cfg.mock,
-                seed=0,
             )
         except InputError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
@@ -98,7 +99,7 @@ def create_app(config_path: Optional[Path] = None) -> FastAPI:
     if cfg.enable_ui:
         from .ui import create_dash_server
 
-        _dash_app, dash_server = create_dash_server(model_defaults=cfg.model_defaults)
+        _dash_app, dash_server = create_dash_server(model_defaults=cfg.model_defaults, ui_defaults=cfg.ui_defaults)
         app.mount("/", WSGIMiddleware(dash_server))
 
     return app
