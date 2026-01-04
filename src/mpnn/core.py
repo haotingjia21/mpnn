@@ -55,7 +55,8 @@ class AppConfig(BaseModel):
     jobs_dir: Path
     proteinmpnn_dir: Path
     timeout_sec: int = Field(ge=1)
-    enable_ui: bool
+    # Max number of concurrent /design executions per process.
+    max_concurrent_jobs: int = Field(default=2, ge=1)
     model_defaults: ModelDefaults
 
 

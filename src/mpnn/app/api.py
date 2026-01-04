@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+
+import anyio
+import functools
 from pathlib import Path
 from typing import Any, Dict
 from uuid import uuid4
@@ -41,6 +44,11 @@ def create_app() -> FastAPI:
     app = FastAPI(title="mpnn", version="0.1.0")
     app.state.config = cfg
 
+    # Concurrency admission control (reject-when-busy).
+    max_concurrent = int(cfg.max_concurrent_jobs)
+    app.state.design_limiter = anyio.CapacityLimiter(max_concurrent)
+
+
     @app.get("/health")
     def health() -> Dict[str, str]:
         return {"status": "ok"}
@@ -75,15 +83,28 @@ def create_app() -> FastAPI:
         uploaded_path = inputs_dir / Path(filename).name
         uploaded_path.write_bytes(blob)
 
+        limiter = app.state.design_limiter
         try:
-            resp = run_design(
-                job_dir=job_dir,
-                structure_path=uploaded_path,
-                original_filename=Path(filename).name,
-                payload=p,
-                model_defaults=cfg.model_defaults,
-                proteinmpnn_dir=cfg.proteinmpnn_dir,
-                timeout_sec=cfg.timeout_sec,
+            limiter.acquire_nowait()
+        except anyio.WouldBlock:
+            raise HTTPException(
+                status_code=503,
+                detail="busy: too many concurrent design jobs",
+                headers={"Retry-After": "1"},
+            )
+
+        try:
+            resp = await anyio.to_thread.run_sync(
+                functools.partial(
+                    run_design,
+                    job_dir=job_dir,
+                    structure_path=uploaded_path,
+                    original_filename=Path(filename).name,
+                    payload=p,
+                    model_defaults=cfg.model_defaults,
+                    proteinmpnn_dir=cfg.proteinmpnn_dir,
+                    timeout_sec=cfg.timeout_sec,
+                )
             )
         except InputError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
@@ -97,15 +118,16 @@ def create_app() -> FastAPI:
                     "stderr": e.stderr,
                 },
             ) from e
+        finally:
+            limiter.release()
 
         return resp.model_dump()
 
     # Mount Dash at "/" LAST so /health and /design match first
-    if cfg.enable_ui:
-        from .ui import create_dash_server
+    from .ui import create_dash_server
 
-        _dash_app, dash_server = create_dash_server(model_defaults=cfg.model_defaults)
-        app.mount("/", WSGIMiddleware(dash_server))
+    _dash_app, dash_server = create_dash_server(model_defaults=cfg.model_defaults)
+    app.mount("/", WSGIMiddleware(dash_server))
 
     return app
 

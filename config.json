@@ -2,12 +2,12 @@
   "jobs_dir": "/data/runs/jobs",
   "proteinmpnn_dir": "/opt/ProteinMPNN",
   "timeout_sec": 600,
-  "enable_ui": true,
   "model_defaults": {
     "model_name": "v_48_020",
     "sampling_temp": "0.1",
     "batch_size": 1,
     "seed": 1,
     "num_sequences": 5
-  }
+  },
+  "max_concurrent_jobs": 2
 }

@@ -20,7 +20,7 @@ def cfg_dict(tmp_path: Path) -> dict:
         "jobs_dir": str(tmp_path / "runs"),
         "proteinmpnn_dir": str(tmp_path / "ProteinMPNN"),
         "timeout_sec": 30,
-        "enable_ui": False,
+        "max_concurrent_jobs": 2,
         "model_defaults": {
             "model_name": "mock",
             "sampling_temp": "0.1",

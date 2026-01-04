@@ -127,3 +127,11 @@ runs/jobs/<id>/
 - The container includes `/app/config.json` by default.
   For custom settings, mount a file to `/app/config.json`.
 
+## Concurrency limit (reject-when-busy)
+
+The service can optionally reject `/design` requests when it is already running too many jobs.
+
+- Configure the default per-process limit in `config.json` via `max_concurrent_jobs` (<= 0 means unlimited).
+- Override at runtime with the environment variable `MPNN_MAX_CONCURRENT_JOBS`.
+
+When the limit is reached, the API returns **503 Service Unavailable** with `Retry-After: 1`.
