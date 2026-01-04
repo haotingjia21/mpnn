@@ -80,7 +80,7 @@ class DesignPayload(_BaseModel):
     #   - empty / missing -> all chains
     #   - "A" or "A,B"
     #
-    # NOTE: we intentionally do NOT support the sentinel "ALL" anymore.
+
     chains: Optional[Union[str, List[str]]] = Field(default="")
 
     # ProteinMPNN args
