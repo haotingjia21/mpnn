@@ -21,6 +21,22 @@ def _parse_payload(payload: str) -> DesignPayload:
     except Exception as e:
         raise HTTPException(status_code=422, detail="payload must be valid JSON") from e
 
+    # Allow empty/missing fields and apply server-side defaults later.
+    if isinstance(obj, dict):
+        # chains: empty/missing -> all chains
+        if obj.get("chains") is None:
+            obj["chains"] = ""
+        if isinstance(obj.get("chains"), str) and obj.get("chains").strip().upper() == "ALL":
+            raise HTTPException(status_code=422, detail="chains='ALL' is not supported; use empty string for all chains")
+
+        # num_seq_per_target: empty string -> treat as missing
+        if obj.get("num_seq_per_target") == "" or obj.get("num_sequences") == "" or obj.get("Num_sequences") == "":
+            # remove any empty aliases so pydantic doesn't try to parse them
+            for k in ("num_seq_per_target", "num_sequences", "Num_sequences"):
+                if obj.get(k) == "":
+                    obj.pop(k, None)
+
+
     try:
         return DesignPayload.model_validate(obj)
     except ValidationError as e:
@@ -50,8 +66,8 @@ def create_app() -> FastAPI:
         payload: str = Form(
             ...,
             description=(
-                'JSON string. Required fields: "chains" (use "ALL" for default all-chains) and '
-                '"num_seq_per_target". Optional field: "model_name".'
+                'JSON string. Fields: "chains" (empty/missing for all-chains) and '
+                '"num_seq_per_target" (empty/missing uses server default). Optional field: "model_name".'
             ),
         ),
     ) -> Dict[str, Any]:
@@ -61,6 +77,12 @@ def create_app() -> FastAPI:
 
         p = _parse_payload(payload)
         cfg: AppConfig = app.state.config
+
+        # Apply server-side defaults for empty/missing fields.
+        if p.num_seq_per_target is None:
+            p = p.model_copy(update={"num_seq_per_target": cfg.model_defaults.num_seq_per_target})
+        if p.chains is None:
+            p = p.model_copy(update={"chains": ""})
 
         job_dir = Path(cfg.jobs_dir) / uuid4().hex
         inputs_dir = job_dir / "inputs"
@@ -99,7 +121,7 @@ def create_app() -> FastAPI:
     if cfg.enable_ui:
         from .ui import create_dash_server
 
-        _dash_app, dash_server = create_dash_server(model_defaults=cfg.model_defaults, ui_defaults=cfg.ui_defaults)
+        _dash_app, dash_server = create_dash_server(model_defaults=cfg.model_defaults)
         app.mount("/", WSGIMiddleware(dash_server))
 
     return app

@@ -94,61 +94,28 @@ def append_log(
 
 
 def normalize_chains(chains: Optional[object]) -> List[str]:
-    """Normalize chain input.
-
-    HW spec allows: "A" or ["A","B"].
-    UI provides: "A B" or "A,B". We also strip accidental quotes.
-    """
-
-    if chains is None:
+    """Return uppercase unique chain IDs. Empty list => all chains."""
+    if not chains:
         return []
 
-    def clean(tok: str) -> str:
-        return tok.strip().strip("\"'").strip()
-
-    items: List[str] = []
-    if isinstance(chains, list):
-        for c in chains:
-            if isinstance(c, str):
-                cc = clean(c)
-                if cc:
-                    items.append(cc)
-    elif isinstance(chains, str):
-        s = chains.strip()
-        if not s:
-            return []
-        if s.upper() == "ALL":
-            return []
-        for p in re.split(r"[,\s]+", s):
-            if p:
-                cp = clean(p)
-                if cp:
-                    items.append(cp)
-    else:
+    s = ",".join(chains) if isinstance(chains, list) else str(chains)
+    s = s.strip().strip('"\'')
+    if not s:
         return []
 
     out: List[str] = []
-    for c in items:
+    for p in s.split(","):
+        p = p.strip()
+        if not p:
+            continue
+        c = p[0].upper()
         if c not in out:
             out.append(c)
     return out
 
 
-# ----------------------------
-# Workspace / input normalization
-# ----------------------------
-
-
 def make_workspace(*, job_dir: Path, structure_path: Path, original_filename: str) -> Workspace:
     """Create job workspace folders and normalize uploaded structure.
-
-    Layout:
-      inputs/     raw uploads + manifest.json
-      artifacts/  derived/normalized structure + jsonl files
-      logs/       run.log
-      model_outputs/seqs  ProteinMPNN outputs
-      responses/        response.json
-      metadata/   checksums.sha256, run_metadata.json
     """
 
     job_dir.mkdir(parents=True, exist_ok=True)

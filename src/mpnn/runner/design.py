@@ -18,28 +18,19 @@ from .io import (
     rename_first_fasta_to_result,
     run_proteinmpnn,
 )
-from .metadata import canonical_jsonl_sha256, collect_versions, get_repo_git_sha, sha256_file, write_checksums, write_json
+from .metadata import collect_versions, get_repo_git_sha, sha256_file, write_checksums, write_json
 
 
 class _ResolvedModelArgs(BaseModel):
-    """Fully resolved ProteinMPNN args for a run."""
-
     model_config = {"protected_namespaces": ()}
-
     model_name: str
     sampling_temp: str
-    batch_size: int = Field(ge=1)
-    num_seq_per_target: int = Field(ge=1)
-    seed: int = Field(ge=0)
+    batch_size: int
+    num_seq_per_target: int
+    seed: int
 
 
 def _resolve_model_args(payload: DesignPayload, defaults: AppConfig.ModelDefaults) -> _ResolvedModelArgs:
-    """Resolve request + deployment defaults.
-
-    Request must provide chains and num_seq_per_target.
-    Server applies defaults only for model_name / sampling_temp / batch_size.
-    """
-
     return _ResolvedModelArgs(
         # Only model_name can be overridden by request. Other model execution
         # parameters must come from config.json.
@@ -61,16 +52,16 @@ def run_design(
     proteinmpnn_dir: Path,
     timeout_sec: int,
 ) -> DesignResponse:
-    """Run ProteinMPNN design and write artifacts under job_dir/.
+    """
+    Run a ProteinMPNN design job.
     """
 
     pm_dir = proteinmpnn_dir
     to_sec = timeout_sec
 
-    # Resolve model arguments (defaults from config.json for model params only)
     model_args = _resolve_model_args(payload, model_defaults)
 
-    # 0) workspace + normalize input structure into artifacts/<base>.pdb
+    # 0) workspace + normalize input structure
     ws = make_workspace(job_dir=job_dir, structure_path=structure_path, original_filename=original_filename)
 
     base_name = ws.normalized_pdb.stem
@@ -142,7 +133,6 @@ def run_design(
 
     # 8) Metadata: manifest + versions + checksums
     raw_input_sha256 = sha256_file(ws.uploaded_path)
-    canonical_preprocess_sha256 = canonical_jsonl_sha256(parsed_jsonl) if parsed_jsonl.exists() else None
 
     # model_git_sha comes from the ProteinMPNN git repo inside the container.
     model_git_sha = get_repo_git_sha(pm_dir)
@@ -179,7 +169,6 @@ def run_design(
         "runtime_ms": runtime_ms,
         "checksums": {
             "input_sha256": raw_input_sha256,
-            "canonical_preprocess_sha256": canonical_preprocess_sha256,
         },
         "versions": {
             "app_version": app_version,

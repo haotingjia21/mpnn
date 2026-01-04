@@ -28,9 +28,7 @@ def _write_test_config(tmp_path: Path, *, jobs_dir: Path, proteinmpnn_dir: Path)
         "jobs_dir": str(jobs_dir),
         "proteinmpnn_dir": str(proteinmpnn_dir),
         "timeout_sec": 600,
-        "enable_ui": False,
-        "ui_defaults": {"num_seq_per_target": 5, "chains": "ALL"},
-        "model_defaults": {"model_name": "v_48_020", "sampling_temp": "0.1", "batch_size": 1, "seed": 123},
+        "enable_ui": False,        "model_defaults": {"model_name": "v_48_020", "sampling_temp": "0.1", "batch_size": 1, "seed": 123},
     }
     (tmp_path / "config.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
 
@@ -47,7 +45,7 @@ def _client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
 
 def test_design_payload_validation_missing_required_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Unit test: verify pydantic validation rejects missing required fields."""
+    """Unit test: missing fields are allowed and server applies defaults."""
 
     cif, _pdb = _example_paths()
 
@@ -57,9 +55,23 @@ def test_design_payload_validation_missing_required_fields(tmp_path: Path, monke
     proteinmpnn_dir = Path("/opt/ProteinMPNN")
     _write_test_config(tmp_path, jobs_dir=jobs_dir, proteinmpnn_dir=proteinmpnn_dir)
 
+    # Stub out the heavy runner so this test is purely about request parsing/defaults.
+    captured = {}
+
+    def _fake_run_design(**kwargs):
+        captured.update(kwargs)
+        from mpnn.core import DesignResponse
+        return DesignResponse.model_validate({
+            "metadata": {"model_version": "test", "runtime_ms": 1},
+            "designed_sequences": [{"chain": "A", "rank": 1, "sequence": "ACDE"}],
+            "original_sequences": {"A": "ACDE"},
+        })
+
+    monkeypatch.setattr("mpnn.app.api.run_design", _fake_run_design)
+
     client = _client(tmp_path, monkeypatch)
 
-    # Missing chains + num_seq_per_target
+    # Missing chains + num_seq_per_target (allowed)
     payload = {"model_name": "v_48_020"}
 
     with cif.open("rb") as f:
@@ -69,7 +81,11 @@ def test_design_payload_validation_missing_required_fields(tmp_path: Path, monke
             data={"payload": json.dumps(payload)},
         )
 
-    assert r.status_code == 422
+    assert r.status_code == 200, r.text
+
+    # Server should have applied defaults.
+    assert captured["payload"].chains == ""
+    assert captured["payload"].num_seq_per_target == 5
 
 
 def test_design_integration_real_model(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -91,7 +107,7 @@ def test_design_integration_real_model(tmp_path: Path, monkeypatch: pytest.Monke
 
     # Use small nseq for speed; still exercises the real model end-to-end.
     payload = {
-        "chains": "ALL",
+        "chains": "",
         "num_seq_per_target": 1,
         "model_name": "v_48_020",
     }

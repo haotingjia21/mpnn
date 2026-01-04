@@ -49,29 +49,16 @@ class AppConfig(BaseModel):
         model_config = ConfigDict(extra="forbid", protected_namespaces=())
 
         # Defaults that are safe to apply server-side when a request omits them.
-        # NOTE: num_seq_per_target and chains are request-required (see DesignPayload).
         model_name: str
         sampling_temp: str
         batch_size: int = Field(ge=1)
         seed: int = Field(ge=0)
-
-    class UiDefaults(BaseModel):
-        """Defaults used only by the UI (client-side convenience).
-
-        These are NOT applied implicitly by the /design endpoint. The UI will
-        always send explicit values so the server can treat them as required.
-        """
-
-        model_config = ConfigDict(extra="forbid", protected_namespaces=())
-
         num_seq_per_target: int = Field(ge=1)
-        chains: str = Field(default="ALL")
 
     jobs_dir: Path
     proteinmpnn_dir: Path
     timeout_sec: int = Field(ge=1)
     enable_ui: bool
-    ui_defaults: UiDefaults
     model_defaults: ModelDefaults
 
 
@@ -97,17 +84,22 @@ class _BaseModel(BaseModel):
 
 
 class DesignPayload(_BaseModel):
-    # chains can be "A" or ["A","B"] or "ALL".
-    # Required: callers must explicitly provide it.
-    chains: Union[str, List[str]]
+    # chains:
+    #   - empty / missing -> all chains
+    #   - "A" or "A,B"
+    #
+    # NOTE: we intentionally do NOT support the sentinel "ALL" anymore.
+    chains: Optional[Union[str, List[str]]] = Field(default="")
 
     # ProteinMPNN args
-    # Required: callers must explicitly provide it.
-    num_seq_per_target: int = Field(
+    # If missing/empty, the API will apply cfg.model_defaults.num_seq_per_target.
+    num_seq_per_target: Optional[int] = Field(
+        default=None,
         validation_alias=AliasChoices("num_seq_per_target", "num_sequences", "Num_sequences"),
         serialization_alias="num_seq_per_target",
         ge=1,
     )
+
     model_name: Optional[str] = Field(default=None, serialization_alias="model_name")
 
 

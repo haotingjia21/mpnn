@@ -11,11 +11,11 @@ from ..core import AppConfig
 
 def _model_options(default_model_name: str):
     opts = ["v_48_002", "v_48_010", "v_48_020", "v_48_030"]
-    out = []
-    for m in opts:
-        label = f"{m} (default)" if m == default_model_name else m
-        out.append({"label": label, "value": m})
-    return out
+    return [
+        {"label": f"{m} (default)" if m == default_model_name else m, "value": m}
+        for m in opts
+    ]
+
 
 S_MONO = {"fontFamily": "ui-monospace, Menlo, Consolas, monospace", "whiteSpace": "pre-wrap"}
 S_DIFF = {"background": "#ffe8a3", "borderRadius": "3px"}
@@ -23,12 +23,10 @@ S_BOX = {"border": "1px solid #ddd", "borderRadius": "10px", "padding": "10px", 
 
 
 def highlight(seq: str, original: str):
-    children = []
-    for i, ch in enumerate(seq):
-        if i >= len(original) or ch != original[i]:
-            children.append(html.Span(ch, style=S_DIFF))
-        else:
-            children.append(ch)
+    children = [
+        html.Span(ch, style=S_DIFF) if i >= len(original) or ch != original[i] else ch
+        for i, ch in enumerate(seq)
+    ]
     return html.Pre(children, style={**S_MONO, "margin": 0})
 
 
@@ -40,28 +38,26 @@ def render_results(data: dict):
     for d in designs:
         by_chain[str(d.get("chain", ""))].append(d)
 
-    chain_order = list(original.keys())
-    for c in by_chain.keys():
-        if c not in chain_order:
-            chain_order.append(c)
+    chain_order = list(original.keys()) + [c for c in by_chain.keys() if c not in original]
 
     blocks = []
     for chain in chain_order:
-        orig_seq = original.get(chain, "") or ""
-        chain_designs = sorted(by_chain.get(chain, []), key=lambda x: int(x.get("rank", 0) or 0))
+        orig_seq = (original.get(chain) or "") if original else ""
+        chain_designs = sorted(by_chain.get(chain, []), key=lambda x: int(x.get("rank") or 0))
 
-        children = [html.Div(f"Chain {chain}", style={"fontWeight": "700"})]
+        children = [html.Div(f"Chain {chain}", style={"fontWeight": 700})]
+
         if orig_seq:
             children += [
-                html.Div("Original", style={"marginTop": "6px", "fontWeight": "600"}),
+                html.Div("Original", style={"marginTop": 6, "fontWeight": 600}),
                 html.Pre(orig_seq, style={**S_MONO, "margin": 0}),
             ]
 
         for d in chain_designs:
             rank = d.get("rank", "")
-            seq = d.get("sequence", "") or ""
+            seq = d.get("sequence") or ""
             children += [
-                html.Div(f"Designed (rank {rank})", style={"marginTop": "10px", "fontWeight": "600"}),
+                html.Div(f"Designed (rank {rank})", style={"marginTop": 10, "fontWeight": 600}),
                 highlight(seq, orig_seq),
             ]
 
@@ -73,7 +69,7 @@ def render_results(data: dict):
     return html.Div(blocks)
 
 
-def create_dash_server(*, model_defaults: AppConfig.ModelDefaults, ui_defaults: AppConfig.UiDefaults):
+def create_dash_server(*, model_defaults: AppConfig.ModelDefaults):
     app = Dash(__name__)
     app.title = "mpnn"
 
@@ -92,8 +88,8 @@ def create_dash_server(*, model_defaults: AppConfig.ModelDefaults, ui_defaults: 
                     dcc.Input(
                         id="chains_text",
                         type="text",
-                        placeholder='chains (required; use "ALL" for default all-chains)',
-                        value=(ui_defaults.chains or "ALL"),
+                        placeholder='all chains (default) or input e.g. "A" / "A,B"'
+                        value="",
                         style={"width": "360px"},
                     ),
                     dcc.Dropdown(
@@ -106,7 +102,7 @@ def create_dash_server(*, model_defaults: AppConfig.ModelDefaults, ui_defaults: 
                     dcc.Input(
                         id="nseq",
                         type="number",
-                        value=ui_defaults.num_seq_per_target,
+                        value=model_defaults.num_seq_per_target,
                         min=1,
                         max=200,
                         style={"width": "90px"},
@@ -123,9 +119,7 @@ def create_dash_server(*, model_defaults: AppConfig.ModelDefaults, ui_defaults: 
 
     @app.callback(Output("file_name", "children"), Input("upload", "filename"))
     def show_filename(filename):
-        if not filename:
-            return ""
-        return f"file: {filename}"
+        return f"file: {filename}" if filename else ""
 
     @app.callback(
         Output("status", "children"),
@@ -139,18 +133,17 @@ def create_dash_server(*, model_defaults: AppConfig.ModelDefaults, ui_defaults: 
         prevent_initial_call=True,
     )
     def on_design(_n_clicks, contents, filename, chains_text, model_name, nseq):
-        if not contents or not filename:
+        if not (contents and filename):
             return "upload a structure file", ""
 
-        b64 = contents.split(",", 1)[1]
-        blob = base64.b64decode(b64)
+        blob = base64.b64decode(contents.split(",", 1)[1])
 
-        # /design requires chains + num_seq_per_target; UI always sends explicit values.
         payload = {
-            "chains": (chains_text or "ALL").strip() or "ALL",
-            "num_seq_per_target": int(nseq),
+            "chains": (chains_text or "").strip(),
+            "num_seq_per_target": int(nseq) if nseq not in (None, "") else None,
             "model_name": model_name,
         }
+        payload = {k: v for k, v in payload.items() if v is not None}
 
         url = f"{flask_request.host_url.rstrip('/')}/design"
 
@@ -167,12 +160,9 @@ def create_dash_server(*, model_defaults: AppConfig.ModelDefaults, ui_defaults: 
         if r.ok:
             data = r.json()
             m = data.get("metadata") or {}
-
-            # Keep status minimal: no seed notes, no legend text.
             status = f"ok ({m.get('runtime_ms','?')} ms, model={m.get('model_version','?')})"
             return status, render_results(data)
 
-        # minimal error display
         try:
             detail = r.json()
         except Exception:

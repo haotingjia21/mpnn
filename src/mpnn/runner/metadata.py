@@ -22,24 +22,6 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def canonical_jsonl_sha256(path: Path) -> str:
-    """Compute a stable SHA-256 for a JSONL file by canonicalizing each line.
-
-    This reduces incidental diffs from whitespace/key ordering.
-    """
-
-    lines: List[str] = []
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        s = raw.strip()
-        if not s:
-            continue
-        obj = json.loads(s)
-        lines.append(json.dumps(obj, sort_keys=True, separators=(",", ":")))
-
-    canon = "\n".join(lines) + ("\n" if lines else "")
-    return sha256_bytes(canon.encode("utf-8"))
-
-
 def get_repo_git_sha(repo_dir: Path) -> str:
     """Return `git rev-parse HEAD` for a local git repo.
 
