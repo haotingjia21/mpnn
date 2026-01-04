@@ -1,13 +1,16 @@
+"""
+Web app (FastAPI + Dash).
+uvicorn mpnn.app.api:create_app --factory --host 0.0.0.0 --port 8000
+"""
+
+
 from __future__ import annotations
-
 import json
-
 import anyio
 import functools
 from pathlib import Path
 from typing import Any, Dict
 from uuid import uuid4
-
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 from starlette.middleware.wsgi import WSGIMiddleware
@@ -15,20 +18,20 @@ from starlette.middleware.wsgi import WSGIMiddleware
 from ..core import AppConfig, ExecutionError, InputError, DesignPayload, load_config
 from ..runner.design import run_design
 
-
 def _parse_payload(payload: str) -> DesignPayload:
+    """Parse and validate the design payload JSON string."""
+
+    #  handle empty/missing fields.
     try:
         obj = json.loads(payload)
     except Exception as e:
         raise HTTPException(status_code=422, detail="payload must be valid JSON") from e
 
-    # Allow empty/missing fields and apply server-side defaults later.
+    # normalize chains and num_sequences fields
+    # 
     if isinstance(obj, dict):
-        # chains: empty/missing -> all chains
         if obj.get("chains") is None:
             obj["chains"] = ""
-
-        # num_sequences: empty string -> treat as missing
         if obj.get("num_sequences") == "":
             obj.pop("num_sequences", None)
 
@@ -36,7 +39,6 @@ def _parse_payload(payload: str) -> DesignPayload:
         return DesignPayload.model_validate(obj)
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors()) from e
-
 
 def create_app() -> FastAPI:
     """Create a FastAPI app."""
@@ -130,7 +132,3 @@ def create_app() -> FastAPI:
     app.mount("/", WSGIMiddleware(dash_server))
 
     return app
-
-
-# Run with:
-#   uvicorn mpnn.app.api:create_app --factory --host 0.0.0.0 --port 8000
