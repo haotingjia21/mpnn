@@ -85,7 +85,7 @@ class DesignPayload(_BaseModel):
 
     # ProteinMPNN args
     # If missing/empty, the API will apply cfg.model_defaults.num_sequences.
-    num_sequences: Optional[int] = Field(default=None, ge=1)
+    num_sequences: Optional[int] = Field(default=None, ge=1, le=10)
     model_name: Optional[str] = Field(default=None, serialization_alias="model_name")
 
 

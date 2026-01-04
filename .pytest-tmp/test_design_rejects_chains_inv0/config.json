@@ -1,0 +1,1 @@
+{"jobs_dir": "/Users/hjia/Desktop/test/gb/mpnn/.pytest-tmp/test_design_rejects_chains_inv0/runs", "proteinmpnn_dir": "/Users/hjia/Desktop/test/gb/mpnn/.pytest-tmp/test_design_rejects_chains_inv0/ProteinMPNN", "timeout_sec": 30, "enable_ui": false, "model_defaults": {"model_name": "mock", "sampling_temp": "0.1", "batch_size": 1, "seed": 0, "num_sequences": 2}}
