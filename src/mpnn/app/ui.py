@@ -88,7 +88,7 @@ def create_dash_server(*, model_defaults: AppConfig.ModelDefaults):
                     dcc.Input(
                         id="chains_text",
                         type="text",
-                        placeholder='all chains (default) or input e.g. "A" / "A,B"'
+                        placeholder='chains (optional; empty for all, or "A" / "A,B")',
                         value="",
                         style={"width": "360px"},
                     ),
