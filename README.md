@@ -63,8 +63,19 @@ Run sample requests against a running service:
 
 ```bash
 python scripts/client.py health
-python scripts/client.py design examples/toy.pdb --chains A --nseq 5 --model v_48_020
-python scripts/client.py design examples/PDB_monomers/pdbs/5L33.pdb
+python scripts/client.py design examples/PDB_monomers/pdbs/5L33.pdb --chains A --nseq 5 --model v_48_020
+python scripts/client.py design examples/PDB_monomers/pdbs/5L33.pdb # use default
+```
+
+```bash
+curl -X GET http://localhost:8000/health
+curl -X POST http://localhost:8000/design \
+  -F "structure=@examples/monomers/pdbs/5L33.pdb" \
+  -F 'payload={
+    "chains": "A",
+    "num_seq_per_target": 5,
+    "model_name": "v_48_020"
+  }'
 ```
 
 ## REST API

@@ -14,8 +14,6 @@ from ..runner.design import run_design
 
 
 def _parse_payload(payload: str) -> DesignPayload:
-    if not payload.strip():
-        raise HTTPException(status_code=422, detail="Missing required form field: payload (JSON)")
     try:
         obj = json.loads(payload)
     except Exception as e:
@@ -26,16 +24,12 @@ def _parse_payload(payload: str) -> DesignPayload:
         # chains: empty/missing -> all chains
         if obj.get("chains") is None:
             obj["chains"] = ""
-        if isinstance(obj.get("chains"), str) and obj.get("chains").strip().upper() == "ALL":
-            raise HTTPException(status_code=422, detail="chains='ALL' is not supported; use empty string for all chains")
 
         # num_seq_per_target: empty string -> treat as missing
         if obj.get("num_seq_per_target") == "" or obj.get("num_sequences") == "" or obj.get("Num_sequences") == "":
-            # remove any empty aliases so pydantic doesn't try to parse them
             for k in ("num_seq_per_target", "num_sequences", "Num_sequences"):
                 if obj.get(k) == "":
                     obj.pop(k, None)
-
 
     try:
         return DesignPayload.model_validate(obj)
@@ -50,8 +44,6 @@ def create_app() -> FastAPI:
 
     run_metadata.json records `model_git_sha` (ProteinMPNN repo revision) plus app_version.
     """
-
-    # Config path is intentionally non-optional: we always load ./config.json.
     cfg = load_config(Path("config.json"))
     app = FastAPI(title="mpnn", version="0.1.0")
     app.state.config = cfg
@@ -72,8 +64,6 @@ def create_app() -> FastAPI:
         ),
     ) -> Dict[str, Any]:
         blob = await structure.read()
-        if not blob:
-            raise HTTPException(status_code=400, detail="Empty structure upload")
 
         p = _parse_payload(payload)
         cfg: AppConfig = app.state.config
@@ -88,7 +78,7 @@ def create_app() -> FastAPI:
         inputs_dir = job_dir / "inputs"
         inputs_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = (structure.filename or "input.pdb")
+        filename = structure.filename or "input.pdb"
         uploaded_path = inputs_dir / Path(filename).name
         uploaded_path.write_bytes(blob)
 

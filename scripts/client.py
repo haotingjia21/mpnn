@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-"""
-Minimal client for the mpnn service.
-
-Examples:
-  python scripts/client.py health
-  python scripts/client.py design examples/toy.pdb --chains "" --nseq 5 --model v_48_020
-
-Env:
-  MPNN_HOST (default: http://localhost:8000)
-"""
 
 from __future__ import annotations
 
@@ -19,62 +9,13 @@ from pathlib import Path
 import requests
 
 
-def host(h: str | None) -> str:
-    if h is None:
-        h = os.getenv("MPNN_HOST", "http://localhost:8000")
-    h = h.rstrip("/")
-    return h if h.startswith(("http://", "https://")) else "http://" + h
+HOST = "http://localhost:8000"  # <- change this if your service runs elsewhere
 
 
-def jprint(x) -> None:
-    print(json.dumps(x, indent=2))
-
-
-def cmd_health(args) -> int:
-    r = requests.get(host(args.host) + "/health", timeout=args.timeout)
-    if r.ok:
-        jprint(r.json())
-        return 0
-    print(f"HTTP {r.status_code}\n{r.text}")
-    return 1
-
-
-def cmd_design(args) -> int:
-    # Defaults are controlled by repo-root config.json.
-    cfg_path = Path(__file__).resolve().parents[1] / "config.json"
-    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-    model_defaults = (cfg.get("model_defaults") or {})
-
-    # /design requires chains + num_seq_per_target. The client will always send explicit values.
-    chains = (args.chains if args.chains is not None else "").strip()
-    nseq = args.nseq if args.nseq is not None else model_defaults.get("num_seq_per_target")
-    model = args.model if args.model is not None else model_defaults.get("model_name")
-    if nseq is None or model is None:
-        raise SystemExit(
-            f"Missing defaults in {cfg_path}. Expected model_defaults.num_seq_per_target and model_defaults.model_name"
-        )
-
-    payload = {"chains": chains, "num_seq_per_target": int(nseq), "model_name": str(model)}
-
-    p = Path(args.structure)
-    with p.open("rb") as f:
-        r = requests.post(
-            host(args.host) + "/design",
-            files={"structure": (p.name, f, "application/octet-stream")},
-            data={"payload": json.dumps(payload)},
-            timeout=args.timeout,
-        )
-
-    if r.ok:
-        jprint(r.json())
-        return 0
-
-    print(f"HTTP {r.status_code}")
-    try:
-        jprint(r.json())
-    except Exception:
-        print(r.text)
-    return 1
+def cfg_defaults() -> tuple[int, str]:
+    cfg = Path(__file__).resolve().parents[1] / "config.json"
+    d = json.loads(cfg.read_text(encoding="utf-8"))["model_defaults"]
+    return int(d["num_seq_per_target"]), str(d["model_name"])
 
 
 def main() -> int:
@@ -83,19 +24,39 @@ def main() -> int:
     ap.add_argument("--timeout", type=int, default=600)
 
     sub = ap.add_subparsers(dest="cmd", required=True)
-
-    p = sub.add_parser("health")
-    p.set_defaults(func=cmd_health)
+    sub.add_parser("health")
 
     p = sub.add_parser("design")
     p.add_argument("structure")
-    p.add_argument("--chains", default=None)  # empty means all-chains
+    p.add_argument("--chains", default=None)  # "" => all-chains
     p.add_argument("--nseq", type=int, default=None)
     p.add_argument("--model", default=None)
-    p.set_defaults(func=cmd_design)
 
-    args = ap.parse_args()
-    return int(args.func(args))
+    a = ap.parse_args()
+
+    if a.cmd == "health":
+        r = requests.get(HOST + "/health", timeout=a.timeout)
+        print(r.text)
+        return 0 if r.ok else 1
+
+    def_nseq, def_model = cfg_defaults()
+    payload = {
+        "chains": ((a.chains or "").strip()),
+        "num_seq_per_target": int(a.nseq or def_nseq),
+        "model_name": str(a.model or def_model),
+    }
+
+    path = Path(a.structure)
+    with path.open("rb") as f:
+        r = requests.post(
+            HOST + "/design",
+            files={"structure": (path.name, f, "application/octet-stream")},
+            data={"payload": json.dumps(payload)},
+            timeout=a.timeout,
+        )
+
+    print(json.dumps(r.json(), indent=2))
+    return 0 if r.ok else 1
 
 
 if __name__ == "__main__":
