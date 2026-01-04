@@ -25,11 +25,9 @@ def _parse_payload(payload: str) -> DesignPayload:
         if obj.get("chains") is None:
             obj["chains"] = ""
 
-        # num_seq_per_target: empty string -> treat as missing
-        if obj.get("num_seq_per_target") == "" or obj.get("num_sequences") == "" or obj.get("Num_sequences") == "":
-            for k in ("num_seq_per_target", "num_sequences", "Num_sequences"):
-                if obj.get(k) == "":
-                    obj.pop(k, None)
+        # num_sequences: empty string -> treat as missing
+        if obj.get("num_sequences") == "":
+            obj.pop("num_sequences", None)
 
     try:
         return DesignPayload.model_validate(obj)
@@ -38,12 +36,7 @@ def _parse_payload(payload: str) -> DesignPayload:
 
 
 def create_app() -> FastAPI:
-    """Create a FastAPI app.
-
-    Runtime configuration is loaded from a JSON file (fail-fast).
-
-    run_metadata.json records `model_git_sha` (ProteinMPNN repo revision) plus app_version.
-    """
+    """Create a FastAPI app."""
     cfg = load_config(Path("config.json"))
     app = FastAPI(title="mpnn", version="0.1.0")
     app.state.config = cfg
@@ -59,7 +52,7 @@ def create_app() -> FastAPI:
             ...,
             description=(
                 'JSON string. Fields: "chains" (empty/missing for all-chains) and '
-                '"num_seq_per_target" (empty/missing uses server default). Optional field: "model_name".'
+                '"num_sequences" (empty/missing uses server default). Optional field: "model_name".'
             ),
         ),
     ) -> Dict[str, Any]:
@@ -69,8 +62,8 @@ def create_app() -> FastAPI:
         cfg: AppConfig = app.state.config
 
         # Apply server-side defaults for empty/missing fields.
-        if p.num_seq_per_target is None:
-            p = p.model_copy(update={"num_seq_per_target": cfg.model_defaults.num_seq_per_target})
+        if p.num_sequences is None:
+            p = p.model_copy(update={"num_sequences": cfg.model_defaults.num_sequences})
         if p.chains is None:
             p = p.model_copy(update={"chains": ""})
 

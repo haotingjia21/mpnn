@@ -23,11 +23,7 @@ def sha256_file(path: Path) -> str:
 
 
 def get_repo_git_sha(repo_dir: Path) -> str:
-    """Return `git rev-parse HEAD` for a local git repo.
-
-    For this project we use it to record the upstream ProteinMPNN code
-    revision (the repo cloned into the container).
-    """
+    """Return `git rev-parse HEAD` for a local git repo."""
 
     cmd = ["git", "-C", str(repo_dir), "rev-parse", "HEAD"]
     out = subprocess.check_output(cmd, text=True).strip()
@@ -37,11 +33,7 @@ def get_repo_git_sha(repo_dir: Path) -> str:
 
 
 def collect_versions(*, model_name: str, model_git_sha: str, container_image: str) -> Dict[str, Any]:
-    """Collect lightweight version metadata.
-
-    - `model_git_sha` is the ProteinMPNN repo commit hash (required).
-    - `container_image` is the runtime image identifier (required).
-    """
+    """Collect lightweight version metadata."""
 
     if not model_git_sha:
         raise ValueError("model_git_sha is required")
@@ -72,10 +64,7 @@ def write_checksums(
     job_dir: Path,
     files: Iterable[Path],
 ) -> List[Tuple[str, str]]:
-    """Write a sha256sum-style file.
-
-    Returns list of (hexdigest, relative_path) pairs.
-    """
+    """Write a sha256sum-style file."""
 
     rows: List[Tuple[str, str]] = []
     for p in files:

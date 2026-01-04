@@ -71,7 +71,7 @@ def test_design_payload_validation_missing_required_fields(tmp_path: Path, monke
 
     client = _client(tmp_path, monkeypatch)
 
-    # Missing chains + num_seq_per_target (allowed)
+    # Missing chains + num_sequences (allowed)
     payload = {"model_name": "v_48_020"}
 
     with cif.open("rb") as f:
@@ -85,7 +85,7 @@ def test_design_payload_validation_missing_required_fields(tmp_path: Path, monke
 
     # Server should have applied defaults.
     assert captured["payload"].chains == ""
-    assert captured["payload"].num_seq_per_target == 5
+    assert captured["payload"].num_sequences == 5
 
 
 def test_design_integration_real_model(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -108,7 +108,7 @@ def test_design_integration_real_model(tmp_path: Path, monkeypatch: pytest.Monke
     # Use small nseq for speed; still exercises the real model end-to-end.
     payload = {
         "chains": "",
-        "num_seq_per_target": 1,
+        "num_sequences": 1,
         "model_name": "v_48_020",
     }
 

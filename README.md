@@ -20,7 +20,7 @@ pip install -e ".[dev]"
 Runtime settings are loaded from a JSON config file (`config.json`).
 
 `model_defaults` defines the deployment-wide defaults for ProteinMPNN. Per-request
-payload fields (e.g. `num_seq_per_target`) override these defaults for that job,
+payload fields (e.g. `num_sequences`) override these defaults for that job,
 and the resolved values are recorded into `runs/jobs/<id>/inputs/manifest.json`.
 
 For reproducibility, `metadata/run_metadata.json` records `model_git_sha` (the
@@ -63,8 +63,8 @@ Run sample requests against a running service:
 
 ```bash
 python scripts/client.py health
-python scripts/client.py design examples/PDB_monomers/pdbs/5L33.pdb --chains A --nseq 5 --model v_48_020
-python scripts/client.py design examples/PDB_monomers/pdbs/5L33.pdb # use default
+python scripts/client.py design examples/complexes/cifs/3HTN.cif --chains A --nseq 2 --model v_48_020
+python scripts/client.py design examples/complexes/pdbs/4YOW.pdb # use default
 ```
 
 ```bash
@@ -73,7 +73,7 @@ curl -X POST http://localhost:8000/design \
   -F "structure=@examples/monomers/pdbs/5L33.pdb" \
   -F 'payload={
     "chains": "A",
-    "num_seq_per_target": 5,
+    "num_sequences": 5,
     "model_name": "v_48_020"
   }'
 ```

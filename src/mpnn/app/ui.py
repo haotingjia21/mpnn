@@ -102,7 +102,7 @@ def create_dash_server(*, model_defaults: AppConfig.ModelDefaults):
                     dcc.Input(
                         id="nseq",
                         type="number",
-                        value=model_defaults.num_seq_per_target,
+                        value=model_defaults.num_sequences,
                         min=1,
                         max=200,
                         style={"width": "90px"},
@@ -140,7 +140,7 @@ def create_dash_server(*, model_defaults: AppConfig.ModelDefaults):
 
         payload = {
             "chains": (chains_text or "").strip(),
-            "num_seq_per_target": int(nseq) if nseq not in (None, "") else None,
+            "num_sequences": int(nseq) if nseq not in (None, "") else None,
             "model_name": model_name,
         }
         payload = {k: v for k, v in payload.items() if v is not None}

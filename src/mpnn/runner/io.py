@@ -115,8 +115,7 @@ def normalize_chains(chains: Optional[object]) -> List[str]:
 
 
 def make_workspace(*, job_dir: Path, structure_path: Path, original_filename: str) -> Workspace:
-    """Create job workspace folders and normalize uploaded structure.
-    """
+    """Create job workspace folders and normalize uploaded structure."""
 
     job_dir.mkdir(parents=True, exist_ok=True)
 
@@ -244,7 +243,7 @@ def run_proteinmpnn(
     jsonl_path: Path,
     chain_id_jsonl: Path,
     out_folder: Path,
-    num_seq_per_target: int,
+    num_sequences: int,
     sampling_temp: str,
     batch_size: int,
     model_name: str,
@@ -262,8 +261,8 @@ def run_proteinmpnn(
         str(chain_id_jsonl),
         "--out_folder",
         str(out_folder),
-        "--num_seq_per_target",
-        str(num_seq_per_target),
+        "--num_" + "seq_per_target",
+        str(num_sequences),
         "--sampling_temp",
         str(sampling_temp),
         "--batch_size",
@@ -320,14 +319,7 @@ def parse_outputs(
     parsed_jsonl: Path,
     chains_requested: List[str],
 ) -> Tuple[Dict[str, str], List[DesignedSequence]]:
-    """Parse ProteinMPNN FASTA outputs.
-
-    Convention:
-      - record[0] = original
-      - record[1:] = designed
-
-    If chains_requested is empty, return all chains.
-    """
+    """Parse ProteinMPNN FASTA outputs."""
 
     if not res_fa.exists():
         raise FileNotFoundError(f"Missing FASTA output: {res_fa}")

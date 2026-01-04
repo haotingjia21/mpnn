@@ -14,7 +14,7 @@ def main() -> None:
     p.add_argument(
         "--payload",
         required=True,
-        help="Path to JSON payload (required fields: chains, num_seq_per_target; optional: model_name)",
+        help="Path to JSON payload (required fields: chains, num_sequences; optional: model_name)",
     )
     p.add_argument("--job_dir", required=True, help="Workspace/job directory (will contain inputs/ and artifacts/model_outputs/responses/metadata/)")
     p.add_argument("--proteinmpnn_dir", default=None, help="Override ProteinMPNN repo path (otherwise from config)")

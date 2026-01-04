@@ -41,10 +41,7 @@ class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", protected_namespaces=())
 
     class ModelDefaults(BaseModel):
-        """Default ProteinMPNN arguments for this deployment.
-
-        These are merged with per-request overrides.
-        """
+        """Default ProteinMPNN arguments for this deployment."""
 
         model_config = ConfigDict(extra="forbid", protected_namespaces=())
 
@@ -53,7 +50,7 @@ class AppConfig(BaseModel):
         sampling_temp: str
         batch_size: int = Field(ge=1)
         seed: int = Field(ge=0)
-        num_seq_per_target: int = Field(ge=1)
+        num_sequences: int = Field(ge=1)
 
     jobs_dir: Path
     proteinmpnn_dir: Path
@@ -73,12 +70,7 @@ def load_config(path: Path) -> AppConfig:
 
 
 class _BaseModel(BaseModel):
-    """Project-wide BaseModel.
-
-    Pydantic reserves the `model_` namespace for internal attributes. Our
-    schema fields (e.g. `model_name`, `model_version`) are part of the
-    contract, so we explicitly allow them.
-    """
+    """Project-wide BaseModel."""
 
     model_config = {"protected_namespaces": ()}
 
@@ -92,14 +84,8 @@ class DesignPayload(_BaseModel):
     chains: Optional[Union[str, List[str]]] = Field(default="")
 
     # ProteinMPNN args
-    # If missing/empty, the API will apply cfg.model_defaults.num_seq_per_target.
-    num_seq_per_target: Optional[int] = Field(
-        default=None,
-        validation_alias=AliasChoices("num_seq_per_target", "num_sequences", "Num_sequences"),
-        serialization_alias="num_seq_per_target",
-        ge=1,
-    )
-
+    # If missing/empty, the API will apply cfg.model_defaults.num_sequences.
+    num_sequences: Optional[int] = Field(default=None, ge=1)
     model_name: Optional[str] = Field(default=None, serialization_alias="model_name")
 
 

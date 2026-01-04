@@ -26,7 +26,7 @@ class _ResolvedModelArgs(BaseModel):
     model_name: str
     sampling_temp: str
     batch_size: int
-    num_seq_per_target: int
+    num_sequences: int
     seed: int
 
 
@@ -37,7 +37,7 @@ def _resolve_model_args(payload: DesignPayload, defaults: AppConfig.ModelDefault
         model_name=(payload.model_name or defaults.model_name),
         sampling_temp=defaults.sampling_temp,
         batch_size=defaults.batch_size,
-        num_seq_per_target=payload.num_seq_per_target,
+        num_sequences=payload.num_sequences,
         seed=defaults.seed,
     )
 
@@ -52,9 +52,7 @@ def run_design(
     proteinmpnn_dir: Path,
     timeout_sec: int,
 ) -> DesignResponse:
-    """
-    Run a ProteinMPNN design job.
-    """
+    """Run a ProteinMPNN design job."""
 
     pm_dir = proteinmpnn_dir
     to_sec = timeout_sec
@@ -101,7 +99,7 @@ def run_design(
         jsonl_path=parsed_jsonl,
         chain_id_jsonl=chain_ids_jsonl,
         out_folder=ws.model_outputs_dir,
-        num_seq_per_target=model_args.num_seq_per_target,
+        num_sequences=model_args.num_sequences,
         sampling_temp=model_args.sampling_temp,
         batch_size=model_args.batch_size,
         model_name=model_args.model_name,

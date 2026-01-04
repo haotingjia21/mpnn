@@ -15,7 +15,7 @@ HOST = "http://localhost:8000"  # <- change this if your service runs elsewhere
 def cfg_defaults() -> tuple[int, str]:
     cfg = Path(__file__).resolve().parents[1] / "config.json"
     d = json.loads(cfg.read_text(encoding="utf-8"))["model_defaults"]
-    return int(d["num_seq_per_target"]), str(d["model_name"])
+    return int(d["num_sequences"]), str(d["model_name"])
 
 
 def main() -> int:
@@ -42,7 +42,7 @@ def main() -> int:
     def_nseq, def_model = cfg_defaults()
     payload = {
         "chains": ((a.chains or "").strip()),
-        "num_seq_per_target": int(a.nseq or def_nseq),
+        "num_sequences": int(a.nseq or def_nseq),
         "model_name": str(a.model or def_model),
     }
 
