@@ -153,12 +153,8 @@ Current version for sync mode only. When jobs limit reached, reject new requests
 
 ## Configuration
 
-Runtime settings are loaded from a JSON config file (`config.json`).
+- Settings are loaded from `config.json`.
 
-`model_defaults` defines the deployment-wide defaults for ProteinMPNN. Per-request
-payload fields (e.g. `num_sequences`) override these defaults for that job,
-and the resolved values are recorded into `runs/jobs/<id>/inputs/manifest.json`.
+- `model_defaults` defines service-wide defaults; request payload overrides per job. Resolved values are saved to `runs/jobs/<id>/inputs/manifest.json`.
 
-For reproducibility, `metadata/run_metadata.json` records `model_git_sha` (the
-ProteinMPNN commit hash) by running `git rev-parse HEAD` in the ProteinMPNN
-checkout inside the container.
+- `metadata/run_metadata.json` records `model_git_sha` of model repo used in the container.
