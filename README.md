@@ -95,6 +95,7 @@ Payload:
       "rank": 1,
       "sequence": "MIDEEEKKALDFVKALEEANPELMKEVIEPDTEMNVNGKKYKGEEIVDYVKELKKKGVKYKLLSYKKEGDKYVFTMERSYNGKTYIETITIKVENGKVKEVEIKRE"
     },
+    // ...
   ],
   "metadata": {
     "model_version": "v_48_020",
