@@ -1,9 +1,9 @@
-from __future__ import annotations
+"""Fixtures for unit tests"""
 
+from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -12,7 +12,6 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
-
 
 @pytest.fixture
 def cfg_dict(tmp_path: Path) -> dict:
@@ -29,7 +28,6 @@ def cfg_dict(tmp_path: Path) -> dict:
             "num_sequences": 2,
         },
     }
-
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cfg_dict: dict) -> TestClient:

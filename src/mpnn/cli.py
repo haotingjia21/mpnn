@@ -1,12 +1,12 @@
-from __future__ import annotations
+"""command-line interface for ProteinMPNN design."""
 
+from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
 
 from .core import AppConfig, DesignPayload, load_config
 from .runner.design import run_design
-
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Run ProteinMPNN design.")

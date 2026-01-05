@@ -86,7 +86,7 @@ Payload:
 {
   "chains": "A",             // e.g. "A"/["A","B"]/empty(each chain results)
   "num_sequences": 5,        // default 5, accept int 1 - 10
-  "model_name": "v_48_020"   // accpet 3 models
+  "model_name": "v_48_020"   // accpet 4 models
 }
 ```
 

@@ -50,7 +50,6 @@ def create_app() -> FastAPI:
     max_concurrent = int(cfg.max_concurrent_jobs)
     app.state.design_limiter = anyio.CapacityLimiter(max_concurrent)
 
-
     @app.get("/health")
     def health() -> Dict[str, str]:
         return {"status": "ok"}

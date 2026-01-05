@@ -1,10 +1,9 @@
-from __future__ import annotations
+"""Model execution pipeline."""
 
+from __future__ import annotations
 import os
 from pathlib import Path
-
 from importlib.metadata import PackageNotFoundError, version as pkg_version
-
 from pydantic import BaseModel, Field
 
 from ..core import AppConfig, DesignMetadata, DesignPayload, DesignResponse, ExecutionError
@@ -28,7 +27,6 @@ class _ResolvedModelArgs(BaseModel):
     batch_size: int
     num_sequences: int
     seed: int
-
 
 def _resolve_model_args(payload: DesignPayload, defaults: AppConfig.ModelDefaults) -> _ResolvedModelArgs:
     return _ResolvedModelArgs(
@@ -59,12 +57,12 @@ def run_design(
 
     model_args = _resolve_model_args(payload, model_defaults)
 
-    # 0) workspace + normalize input structure
+    # 1) workspace + normalize input structure
     ws = make_workspace(job_dir=job_dir, structure_path=structure_path, original_filename=original_filename)
 
     base_name = ws.normalized_pdb.stem
 
-    # 1..5) pipeline
+    # 2) pdbs to jsonl (forward compatible for multiple pdbs)
     parsed_jsonl = ws.artifacts_dir / "parsed_pdbs.jsonl"
     parse_multiple_chains(
         proteinmpnn_dir=pm_dir,
@@ -74,6 +72,7 @@ def run_design(
         timeout_sec=to_sec,
     )
 
+    # 3) if chain not given, infer from pdb and use all chains
     user_chains = normalize_chains(payload.chains)
     chain_list_for_jsonl = user_chains or infer_chains_from_parsed_jsonl(parsed_jsonl)
     if not chain_list_for_jsonl:
@@ -84,6 +83,7 @@ def run_design(
             stderr="parsed_pdbs.jsonl did not contain seq_chain_* keys",
         )
 
+    # 4) record chains used
     chain_ids_jsonl = ws.artifacts_dir / "chain_ids.jsonl"
     assign_fixed_chains(
         proteinmpnn_dir=pm_dir,
@@ -94,6 +94,7 @@ def run_design(
         timeout_sec=to_sec,
     )
 
+    # 5) run ProteinMPNN
     runtime_ms = run_proteinmpnn(
         proteinmpnn_dir=pm_dir,
         jsonl_path=parsed_jsonl,

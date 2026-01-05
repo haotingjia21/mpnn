@@ -1,25 +1,20 @@
-from __future__ import annotations
+"""Schemas and errors"""
 
+from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Dict, List, Optional, Union
-
 from pydantic import BaseModel, Field, AliasChoices
 from pydantic.config import ConfigDict
-
 
 # ---------------------------
 # Errors (fail-fast)
 # ---------------------------
-
-
 class CoreError(Exception):
     """Base error type for mpnn."""
 
-
 class InputError(CoreError):
     """Raised when user input is invalid."""
-
 
 class ExecutionError(CoreError):
     """Raised when an external command fails."""
@@ -32,8 +27,6 @@ class ExecutionError(CoreError):
 # ---------------------------
 # Service config (JSON file)
 # ---------------------------
-
-
 class AppConfig(BaseModel):
     """Service configuration loaded from a JSON file."""
 
@@ -59,22 +52,17 @@ class AppConfig(BaseModel):
     max_concurrent_jobs: int = Field(default=2, ge=1)
     model_defaults: ModelDefaults
 
-
 def load_config(path: Path) -> AppConfig:
     data = json.loads(path.read_text(encoding="utf-8"))
     return AppConfig.model_validate(data)
 
-
 # ---------------------------
 # API schemas
 # ---------------------------
-
-
 class _BaseModel(BaseModel):
     """Project-wide BaseModel."""
 
     model_config = {"protected_namespaces": ()}
-
 
 class DesignPayload(_BaseModel):
     # chains:
@@ -89,17 +77,14 @@ class DesignPayload(_BaseModel):
     num_sequences: Optional[int] = Field(default=None, ge=1, le=10)
     model_name: Optional[str] = Field(default=None, serialization_alias="model_name")
 
-
 class DesignMetadata(_BaseModel):
     model_version: str
     runtime_ms: int
-
 
 class DesignedSequence(_BaseModel):
     chain: str
     rank: int
     sequence: str
-
 
 class DesignResponse(_BaseModel):
     metadata: DesignMetadata

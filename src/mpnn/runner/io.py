@@ -1,5 +1,6 @@
-from __future__ import annotations
+"""helpers for filesystem I/O and running ProteinMPNN subprocesses."""
 
+from __future__ import annotations
 import json
 import re
 import shutil
@@ -9,20 +10,16 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-
 from Bio import SeqIO
 from Bio.PDB import MMCIFParser, PDBIO
 
 from ..core import DesignedSequence, ExecutionError, InputError
 
-
 @dataclass(frozen=True)
 class Workspace:
     """Filesystem layout for a single design job."""
-
     job_dir: Path
 
-    # Top-level folders
     inputs_dir: Path
     artifacts_dir: Path
     logs_dir: Path
@@ -30,33 +27,24 @@ class Workspace:
     formatted_outputs_dir: Path
     responses_dir: Path
     metadata_dir: Path
-
-    # Common files
     log_path: Path  # logs/run.log
     uploaded_path: Path  # inputs/<original_filename>
     normalized_pdb: Path  # artifacts/<base_name>.pdb (original or converted)
 
-
 # ----------------------------
 # Generic helpers
 # ----------------------------
-
-
 def convert_cif_to_pdb(cif_path: Path, pdb_path: Path) -> None:
     parser = MMCIFParser(QUIET=True)
     structure = parser.get_structure("cif", str(cif_path))
-
-    # Minimal PDB compatibility: truncate chain IDs to 1 char.
     models = list(structure)
     if models:
         for chain in models[0]:
             cid = str(chain.id) if chain.id is not None else "A"
             chain.id = (cid.strip()[:1] or "A")
-
     io = PDBIO()
     io.set_structure(structure)
     io.save(str(pdb_path))
-
 
 def run_cmd(cmd: List[str], *, timeout_sec: int) -> Tuple[int, str, str, int]:
     t0 = time.perf_counter()
@@ -69,7 +57,6 @@ def run_cmd(cmd: List[str], *, timeout_sec: int) -> Tuple[int, str, str, int]:
     )
     runtime_ms = int((time.perf_counter() - t0) * 1000)
     return proc.returncode, (proc.stdout or ""), (proc.stderr or ""), runtime_ms
-
 
 def append_log(
     log_path: Path,
@@ -92,17 +79,14 @@ def append_log(
         f.write("\n---- stderr ----\n")
         f.write(err.rstrip("\n") + "\n")
 
-
 def normalize_chains(chains: Optional[object]) -> List[str]:
     """Return uppercase unique chain IDs. Empty list => all chains."""
     if not chains:
         return []
-
     s = ",".join(chains) if isinstance(chains, list) else str(chains)
     s = s.strip().strip('"\'')
     if not s:
         return []
-
     out: List[str] = []
     for p in s.split(","):
         p = p.strip()
@@ -113,12 +97,9 @@ def normalize_chains(chains: Optional[object]) -> List[str]:
             out.append(c)
     return out
 
-
 def make_workspace(*, job_dir: Path, structure_path: Path, original_filename: str) -> Workspace:
     """Create job workspace folders and normalize uploaded structure."""
-
     job_dir.mkdir(parents=True, exist_ok=True)
-
     inputs_dir = job_dir / "inputs"
     artifacts_dir = job_dir / "artifacts"
     logs_dir = job_dir / "logs"
@@ -131,7 +112,6 @@ def make_workspace(*, job_dir: Path, structure_path: Path, original_filename: st
     for p in [inputs_dir, artifacts_dir, logs_dir, model_outputs_dir, formatted_outputs_dir, responses_dir, metadata_dir]:
         p.mkdir(parents=True, exist_ok=True)
     (model_outputs_dir / "seqs").mkdir(parents=True, exist_ok=True)
-
     log_path = logs_dir / "run.log"
 
     # Record raw upload under inputs/
@@ -168,12 +148,9 @@ def make_workspace(*, job_dir: Path, structure_path: Path, original_filename: st
         normalized_pdb=normalized_pdb,
     )
 
-
 # ----------------------------
 # ProteinMPNN helper scripts (JSONL workflow)
 # ----------------------------
-
-
 def parse_multiple_chains(*, proteinmpnn_dir: Path, input_dir: Path, parsed_jsonl: Path, log_path: Path, timeout_sec: int) -> None:
     helper = proteinmpnn_dir / "helper_scripts" / "parse_multiple_chains.py"
     cmd = [
@@ -188,7 +165,6 @@ def parse_multiple_chains(*, proteinmpnn_dir: Path, input_dir: Path, parsed_json
     append_log(log_path, title="parse_multiple_chains", cmd=cmd, rc=rc, out=out, err=err, runtime_ms=ms)
     if rc != 0:
         raise ExecutionError("parse_multiple_chains.py failed", returncode=rc, stdout=out, stderr=err)
-
 
 def infer_chains_from_parsed_jsonl(parsed_jsonl: Path) -> List[str]:
     """Infer chain IDs from first jsonl record keys like seq_chain_A."""
@@ -209,7 +185,6 @@ def infer_chains_from_parsed_jsonl(parsed_jsonl: Path) -> List[str]:
             if cid and cid not in chains:
                 chains.append(cid)
     return sorted(chains)
-
 
 def assign_fixed_chains(
     *,
@@ -235,7 +210,6 @@ def assign_fixed_chains(
     append_log(log_path, title="assign_fixed_chains", cmd=cmd, rc=rc, out=out, err=err, runtime_ms=ms)
     if rc != 0:
         raise ExecutionError("assign_fixed_chains.py failed", returncode=rc, stdout=out, stderr=err)
-
 
 def run_proteinmpnn(
     *,
@@ -278,12 +252,9 @@ def run_proteinmpnn(
         raise ExecutionError("ProteinMPNN failed", returncode=rc, stdout=out, stderr=err)
     return ms
 
-
 # ----------------------------
 # Outputs
 # ----------------------------
-
-
 def rename_first_fasta_to_result(seqs_dir: Path, *, stem: str) -> Path | None:
     """Rename first produced fasta to <stem>_res.fa. Returns new path or None."""
 
@@ -301,7 +272,6 @@ def rename_first_fasta_to_result(seqs_dir: Path, *, stem: str) -> Path | None:
     src.rename(dst)
     return dst
 
-
 def _split_multichain_sequence(seq: str, chains: List[str]) -> List[str]:
     if len(chains) <= 1:
         return [seq]
@@ -311,7 +281,6 @@ def _split_multichain_sequence(seq: str, chains: List[str]) -> List[str]:
             if len(parts) == len(chains):
                 return parts
     return [seq]
-
 
 def parse_outputs(
     *,

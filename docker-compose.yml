@@ -7,5 +7,4 @@ services:
     volumes:
       - ./runs:/data/runs
     environment:
-      # Used for metadata/run_metadata.json
       CONTAINER_IMAGE: mpnn:dev

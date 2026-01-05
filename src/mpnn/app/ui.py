@@ -1,7 +1,8 @@
+"""Dash-based web UI for ProteinMPNN mini-service."""
+
 import base64
 import json
 from collections import defaultdict
-
 import requests
 from dash import Dash, Input, Output, State, dcc, html
 from flask import request as flask_request

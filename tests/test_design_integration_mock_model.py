@@ -1,8 +1,13 @@
-from __future__ import annotations
+"""Integration test with mock model
+- request wiring (multipart, payload parsing)
+- orchestration logic (calls the expected subprocess steps)
+- filesystem side effects (job workspace + artifacts)
+- output contract (response schema)
+"""
 
+from __future__ import annotations
 import json
 from pathlib import Path
-
 
 def _minimal_pdb_bytes() -> bytes:
     # Minimal single-chain PDB that Bio.PDB can parse (chain A).
@@ -13,7 +18,6 @@ def _minimal_pdb_bytes() -> bytes:
         "ATOM      4  O   ALA A   1      12.500  15.600  10.000  1.00 20.00           O\n"
         "TER\nEND\n"
     ).encode("utf-8")
-
 
 def test_design_integration_mock_model_writes_artifacts(client, tmp_path: Path, monkeypatch):
     # Patch the subprocess execution layer so we don't need real ProteinMPNN.
