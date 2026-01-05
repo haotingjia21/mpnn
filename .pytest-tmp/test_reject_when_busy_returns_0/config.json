@@ -1,1 +1,0 @@
-{"jobs_dir": "/Users/hjia/Desktop/test/gb/mpnn/.pytest-tmp/test_reject_when_busy_returns_0/runs", "proteinmpnn_dir": "/Users/hjia/Desktop/test/gb/mpnn/.pytest-tmp/test_reject_when_busy_returns_0/ProteinMPNN", "timeout_sec": 30, "max_concurrent_jobs": 1, "model_defaults": {"model_name": "mock", "sampling_temp": "0.1", "batch_size": 1, "seed": 0, "num_sequences": 2}}
