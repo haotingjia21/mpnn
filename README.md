@@ -1,10 +1,6 @@
 # ProteinMPNN mini-service
-
-This repo is a minimal wrapper around dauparas/ProteinMPNN that provides:
-
-- **Service (`mpnn.app.api:create_app`)**: FastAPI `POST /design` + `GET /health`
-- **Core runner (`mpnn.run_design`)**: stateless, file-contract execution
-- **UI**: a small Dash UI mounted at `/` that calls the same `/design` endpoint
+Build a locally deployable web app that exposes a ProteinMPNN design API with a minimal
+browser UI
 
 ## Set up
 
