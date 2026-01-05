@@ -111,11 +111,17 @@ Payload:
 
 ```
 
-## Output artifacts (per request / job)
-Specify job path in `config.json` \
-Each request generates an `id/` dir \
-For this project, `model_outputs/` and `responses/` are sufficient for minimal version.
-The rest structure are for scalability and future cloud storage.
+## Unit tests
+```
+pytest
+```
+Input validation, concurrency and integration test.
+
+## Output artifacts
+- Specify job path in `config.json`
+- Each request generates an `id/` dir
+- For this project, `model_outputs/` and `responses/` are sufficient for minimal version.
+- The rest are for cloud database and offline mode compatibility.
 
 ```
 runs/jobs/<id>/
@@ -146,12 +152,7 @@ runs/jobs/<id>/
 
 ## Concurrency limit (reject-when-busy)
 
-The service can optionally reject `/design` requests when it is already running too many jobs.
-
-- Configure the default per-process limit in `config.json` via `max_concurrent_jobs` (<= 0 means unlimited).
-- Override at runtime with the environment variable `MPNN_MAX_CONCURRENT_JOBS`.
-
-When the limit is reached, the API returns **503 Service Unavailable** with `Retry-After: 1`.
+Current version for sync mode only. When jobs limit reached, reject new requests.
 
 ## Configuration
 
