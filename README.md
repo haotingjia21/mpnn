@@ -88,7 +88,7 @@ Payload:
 
 ### Response JSON
 ```json
-{ // num designed seqs for each chain requested
+{ // N designed seqs for each chain requested
   "designed_sequences": [
     {
       "chain": "A", 
