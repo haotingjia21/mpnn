@@ -118,7 +118,7 @@ Input validation, concurrency and integration test.
 - Specify job path in `config.json`
 - Each request generates an `id/` dir
 - For this project, `model_outputs/` and `responses/` are sufficient for minimal version.
-- The rest are for future cloud database and offline mode forward compatibility.
+- The rest are for future cloud database integration and offline mode forward compatibility.
 
 ```
 runs/jobs/<id>/
