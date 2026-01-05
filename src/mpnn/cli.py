@@ -1,5 +1,6 @@
-from __future__ import annotations
+"""command-line interface for ProteinMPNN design."""
 
+from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
@@ -7,14 +8,13 @@ from pathlib import Path
 from .core import AppConfig, DesignPayload, load_config
 from .runner.design import run_design
 
-
 def main() -> None:
     p = argparse.ArgumentParser(description="Run ProteinMPNN design.")
     p.add_argument("--structure", required=True, help="Path to structure file (.pdb/.cif)")
     p.add_argument(
         "--payload",
         required=True,
-        help="Path to JSON payload (required fields: chains, num_seq_per_target; optional: model_name)",
+        help="Path to JSON payload (required fields: chains, num_sequences; optional: model_name)",
     )
     p.add_argument("--job_dir", required=True, help="Workspace/job directory (will contain inputs/ and artifacts/model_outputs/responses/metadata/)")
     p.add_argument("--proteinmpnn_dir", default=None, help="Override ProteinMPNN repo path (otherwise from config)")
